@@ -1,6 +1,6 @@
 # SmartSeed
 
-This is an open source image editing software modeled after Adobe Photoshop.  Currently, this project is still in production, so stay tuned.
+This is an open source image editing software modeled after Adobe Photoshop.  I hope that I can use as many AI algorithms as possible to make it feature rich. Currently, this project is still in production, so stay tuned.
 
 ## Environment
 

@@ -7,6 +7,7 @@ Created on Fri Jan 25 09:53:20 2019
 
 import cv2
 import numpy as np
+import logger
 
 class Sit2Anime(object):
 
@@ -136,17 +137,17 @@ class Sit2Anime(object):
     def DoProcess(self,img,sky,tablepath):
         local = cv2.imread(tablepath+'/lookup-table.png')
         transport = cv2.imread(tablepath+'/lookup-table_tmp1.jpg')
-        print("Start processing...")
+        logger.info("Start processing...")
         dst = self.shift(img)
-        oil = self.oilPainting(img,1,8,1)
-        dst = (0.4*oil + 0.6*dst).astype(np.uint8)
-        print("Processing Sky Region.")
+        #oil = self.oilPainting(img,1,8,1)
+        #dst = (0.4*oil + 0.6*dst).astype(np.uint8)
+        logger.info("Processing Sky Region.")
         mask = self.skyRegion(dst)
         clone = self.seamClone(sky,dst,mask)
-        print('Doing Filter.')
+        logger.info('Doing Filter.')
         res = self.myFilter(local,transport,clone)
         #cv2.imwrite(outputname,res)
-        print('Successful!')
+        logger.info('Successful!')
         return res
 
 if __name__ == '__main__':
