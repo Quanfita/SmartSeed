@@ -12,6 +12,7 @@ import ops
 import logger
 from pencil import Draw, AdjBlock
 import numpy as np
+from Basic import AdjDialog
 from Thread import ProThread
 from ImgObj import ImgObject
 from Stack import OpStack
@@ -65,6 +66,14 @@ class Example(QMainWindow,QDialog):
         self.lineAct.setStatusTip('Line')
         self.lineAct.triggered.connect(self.line)
         
+        self.rectAct = QAction(QIcon('./UI/square.svg'),'rect',self)
+        self.rectAct.setStatusTip('Rect')
+        self.rectAct.triggered.connect(self.rect)
+        
+        self.circleAct = QAction(QIcon('./UI/circle.svg'),'circle',self)
+        self.circleAct.setStatusTip('Circle')
+        self.circleAct.triggered.connect(self.circle)
+        
         self.cropAct = QAction(QIcon('./UI/crop.svg'),'crop',self)
         self.cropAct.setStatusTip('Crop')
         self.cropAct.triggered.connect(self.crop)
@@ -106,6 +115,10 @@ class Example(QMainWindow,QDialog):
         ACEAct = QAction('ACE',self)
         ACEAct.setStatusTip('Auto Color Equalization')
         ACEAct.triggered.connect(self.ACE)
+        
+        ACAAct = QAction('ACA',self)
+        ACAAct.setStatusTip('Auto Contrast Adjustment')
+        ACAAct.triggered.connect(self.ACA)
         
         undoAct = QAction(QIcon('./UI/undo.svg'),'Undo',self)
         undoAct.setShortcut('Ctrl+Z')
@@ -238,6 +251,8 @@ class Example(QMainWindow,QDialog):
         
         self.toolBar.addAction(self.pencilAct)
         self.toolBar.addAction(self.lineAct)
+        self.toolBar.addAction(self.rectAct)
+        self.toolBar.addAction(self.circleAct)
         self.toolBar.addAction(self.fillAct)
         self.toolBar.addAction(self.eraserAct)
         self.toolBar.addAction(self.brushAct)
@@ -251,7 +266,20 @@ class Example(QMainWindow,QDialog):
         impAct = QAction('Import mail', self) 
         impMenu.addAction(impAct)
         
+        LightAct = QAction('Light',self)
+        LightAct.triggered.connect(self.light)
+        compAct = QAction('Comp',self)
+        compAct.triggered.connect(self.comp)
+        customAct = QAction('Custom',self)
+        customAct.triggered.connect(self.custom)
+        hueAct = QAction('Hue',self)
+        hueAct.triggered.connect(self.hue)
+        
         adjustMenu = QMenu('Adjustment',self)
+        adjustMenu.addAction(LightAct)
+        adjustMenu.addAction(compAct)
+        adjustMenu.addAction(customAct)
+        adjustMenu.addAction(hueAct)
         
         aboutAct = QAction(QIcon('./UI/info.svg'),'About',self)
         
@@ -266,6 +294,7 @@ class Example(QMainWindow,QDialog):
         imageMenu = menubar.addMenu('Image')
         imageMenu.addAction(AWBAct)
         imageMenu.addAction(ACEAct)
+        imageMenu.addAction(ACAAct)
         imageMenu.addMenu(adjustMenu)
         
         editMenu = menubar.addMenu('Edit')
@@ -532,7 +561,7 @@ class Example(QMainWindow,QDialog):
     def AWB(self):
         self.Thr.change('AWB')
         self.Thr.start()
-        self.showDialog()
+        self.showDialog(1)
         logger.info("AWB Successful!")
         self.OS.push([np.array(self.img.Image),'AWB'])
         self.refreshShow()
@@ -540,9 +569,17 @@ class Example(QMainWindow,QDialog):
     def ACE(self):
         self.Thr.change('ACE')
         self.Thr.start()
-        self.showDialog()
+        self.showDialog(1)
         logger.info('ACE Successful!')
         self.OS.push([np.array(self.img.Image),'ACE'])
+        self.refreshShow()
+        
+    def ACA(self):
+        self.Thr.change('ACA')
+        self.Thr.start()
+        self.showDialog(1)
+        logger.info('ACA Successful!')
+        self.OS.push([np.array(self.img.Image),'ACA'])
         self.refreshShow()
     
     def Undo(self):
@@ -594,12 +631,15 @@ class Example(QMainWindow,QDialog):
     def disPre(self):
         if self.last_tool == 'Pencil':
             self.pencilAct.setEnabled(True)
-            self.removeDockWidget(self.pencil_dock)
-            sip.delete(self.pencil_dock)
         elif self.last_tool == 'Line':
             self.lineAct.setEnabled(True)
-            self.removeDockWidget(self.line_dock)
-            sip.delete(self.line_dock)
+        elif self.last_tool == 'Rect':
+            self.rectAct.setEnabled(True)
+        elif self.last_tool == 'Circle':
+            self.circleAct.setEnabled(True)
+        else: return
+        self.removeDockWidget(self.tmp_dock)
+        sip.delete(self.tmp_dock)
     
     def pencil(self):
         self.label.chgType("Pencil")
@@ -607,12 +647,12 @@ class Example(QMainWindow,QDialog):
         self.pencilAct.setEnabled(False)
         self.label.setCursor(Qt.CrossCursor)
         self.adj_b = AdjBlock(self.label)
-        self.pencil_dock = QDockWidget('Pencil Attributes')  # 实例化dockwidget类
-        self.pencil_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        self.pencil_dock.setObjectName("Attributes")
-        self.pencil_dock.setFeatures(self.pencil_dock.DockWidgetFloatable|self.pencil_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, self.pencil_dock)
-        self.label.saveImg()
+        self.tmp_dock = QDockWidget('Pencil Attributes')  # 实例化dockwidget类
+        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
+        self.tmp_dock.setObjectName("Attributes")
+        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
+        if self.last_tool == '':self.label.saveImg()
         self.last_tool = 'Pencil'
         self.refreshShow()
         
@@ -622,12 +662,12 @@ class Example(QMainWindow,QDialog):
         self.lineAct.setEnabled(False)
         self.label.setCursor(Qt.CrossCursor)
         self.adj_b = AdjBlock(self.label)
-        self.line_dock = QDockWidget('Line Attributes')
-        self.line_dock.setWidget(self.adj_b)
-        self.line_dock.setObjectName('Attributes')
-        self.line_dock.setFeatures(self.line_dock.DockWidgetFloatable|self.line_dock.DockWidgetMovable)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.line_dock)
-        self.label.saveImg()
+        self.tmp_dock = QDockWidget('Line Attributes')
+        self.tmp_dock.setWidget(self.adj_b)
+        self.tmp_dock.setObjectName('Attributes')
+        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
+        if self.last_tool == '':self.label.saveImg()
         self.last_tool = 'Line'
         self.refreshShow()
         
@@ -664,9 +704,37 @@ class Example(QMainWindow,QDialog):
         logger.info('Do Anime Filter Successful!')
         self.refreshShow()
     
+    def rect(self):
+        self.label.chgType("Rect")
+        self.disPre()
+        self.rectAct.setEnabled(False)
+        self.label.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.label)
+        self.tmp_dock = QDockWidget('Rect Attributes')  # 实例化dockwidget类
+        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
+        self.tmp_dock.setObjectName("Attributes")
+        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
+        if self.last_tool == '':self.label.saveImg()
+        self.last_tool = 'Rect'
+        self.refreshShow()
+    
+    def circle(self):
+        self.label.chgType("Circle")
+        self.disPre()
+        self.circleAct.setEnabled(False)
+        self.label.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.label)
+        self.tmp_dock = QDockWidget('Circle Attributes')  # 实例化dockwidget类
+        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
+        self.tmp_dock.setObjectName("Attributes")
+        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
+        if self.last_tool == '':self.label.saveImg()
+        self.last_tool = 'Circle'
+        self.refreshShow()
+    
     def fill(self):
-        print(self.OS.stack)
-        print(self.OS.restack)
         pass
     
     def crop(self):
@@ -779,6 +847,31 @@ class Example(QMainWindow,QDialog):
         self.OS.push([np.array(self.img.Image),'SmartSharp'])
         logger.info('Do Smart Sharp Successful!')
         self.refreshShow()
+    
+    def light(self):
+        l = AdjDialog(self.img,'light')
+        if l.exec_() == QDialog.Accepted:
+            self.refreshShow()
+        return
+    
+    def comp(self):
+        l = AdjDialog(self.img,'comp')
+        if l.exec_() == QDialog.Accepted:
+            self.refreshShow()
+        return
+    
+    def custom(self):
+        l = AdjDialog(self.img,'custom')
+        if l.exec_() == QDialog.Accepted:
+            self.refreshShow()
+        return
+    
+    def hue(self):
+        l = AdjDialog(self.img,'hue')
+        if l.exec_() == QDialog.Accepted:
+            self.refreshShow()
+        return
+        
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

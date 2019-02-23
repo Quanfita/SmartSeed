@@ -19,6 +19,7 @@ class Draw(QLabel):
         self.setMouseTracking(False)
         self.pos_xy = []
         self.pos_tmp = []
+        self.brush = QColor(0,0,0,0)
         self.point_start,self.point_end = (-1,-1),(-1,-1)
         self.pencolor = QColor('black')
         self.thickness = 1
@@ -32,7 +33,7 @@ class Draw(QLabel):
     
     def chgType(self,tp):
         self.type = tp
-        if self.type == 'Line':
+        if self.type in ['Line','Rect','Circle']:
             self.setMouseTracking(True)
         else:
             self.setMouseTracking(False)
@@ -60,20 +61,31 @@ class Draw(QLabel):
                                           self.point_end[0], self.point_end[1])
                     self.point_start = self.point_end
         elif self.type == 'Line':
-            self.painter.drawLine(self.point_start[0],self.point_start[1],self.point_end[0],self.point_end[1])
+            self.painter.drawLine(self.point_start[0],self.point_start[1],
+                                  self.point_end[0],self.point_end[1])
+        elif self.type == 'Rect':
+            self.painter.setBrush(self.brush)
+            self.painter.drawRect(self.point_start[0],self.point_start[1],
+                                  self.point_end[0] - self.point_start[0],
+                                  self.point_end[1] - self.point_start[1])
+        elif self.type == 'Circle':
+            self.painter.setBrush(self.brush)
+            self.painter.drawEllipse(self.point_start[0],self.point_start[1],
+                                  self.point_end[0] - self.point_start[0],
+                                  self.point_end[1] - self.point_start[1])
         self.painter.end()
         pass
     
     def mousePressEvent(self,event):
         self.flag = True
-        if self.type == 'Line':
+        if self.type in ['Line','Rect','Circle']:
             self.point_start = (event.pos().x(), event.pos().y())
         elif self.type == 'Pencil':
             self.pos_xy = []
     
     def mouseMoveEvent(self,event):
         if self.flag:
-            if self.type == 'Line':
+            if self.type in ['Line','Rect','Circle']:
                 self.point_end = (event.pos().x(), event.pos().y())
             elif self.type == 'Pencil':
                 pos_tmp = (event.pos().x(), event.pos().y())
@@ -81,19 +93,18 @@ class Draw(QLabel):
             self.update()
     
     def mouseReleaseEvent(self,event):
-        if self.type == 'Line':
+        if self.flag:
+            if self.type in ['Line','Rect','Circle']:
+                self.point_start = (-1,-1)
+                self.point_end = (-1,-1)
+            elif self.type == 'Pencil':
+                pos_test = (-1, -1)
+                self.pos_xy.append(pos_test)
+                self.pos_xy = []
+    
             self.flag = False
             self.update()
             self.saveImg()
-            self.point_start = (-1,-1)
-            self.point_end = (-1,-1)
-        elif self.type == 'Pencil':
-            self.flag = False
-            pos_test = (-1, -1)
-            self.pos_xy.append(pos_test)
-            self.pos_xy = []
-        self.update()
-        self.saveImg()
     
     def ChangePenColor(self, color):
         self.penColor = color
@@ -102,6 +113,7 @@ class Draw(QLabel):
         self.thickness = thickness
     
     def Clean(self):
+        self.flag = False
         self.pos_xy = []
         self.pos_tmp = []
         self.point_start = (-1,-1)
@@ -124,16 +136,23 @@ class AdjBlock(QWidget):
         super(AdjBlock,self).__init__()
         self.pencil = pencil
         self.main_layout = QVBoxLayout()
-        self.color_lb = QLabel('Color',self)
+        if self.pencil.type in ['Rect','Circle']:
+            self.color_lb = QLabel('Border Color',self)
+            self.fill_lb = QLabel('Fill Color',self)
+            self.fill_lb.setAlignment(Qt.AlignLeft)
+            self.fill_btn = QPushButton('',self)
+            self.fill_btn.setStyleSheet("QPushButton{background-color:black}"
+                                        "QPushButton{border-radius:5px}"
+                                        "QPushButton{border:1px}")
+            self.fill_btn.clicked.connect(self.fillColor)
+        else:
+            self.color_lb = QLabel('Color',self)
         self.color_lb.setAlignment(Qt.AlignLeft)
-        
-        #self.color_sl = QSlider(Qt.Horizontal,self)
-        #self.color_sl.resize(30,100)
-        #self.color_sl.setMinimum(0)
-        #self.color_sl.setMaximum(256)
-        #self.color_sl.setTickPosition(QSlider.TicksAbove)
-        
-        self.color_btn = QPushButton('Choose Color',self)
+
+        self.color_btn = QPushButton('',self)
+        self.color_btn.setStyleSheet("QPushButton{background-color:black}"
+                                     "QPushButton{border-radius:5px}"
+                                     "QPushButton{border:1px}")
         self.color_btn.clicked.connect(self.chooseColor)
         
         self.thick_lb = QLabel('Thickness',self)
@@ -143,6 +162,7 @@ class AdjBlock(QWidget):
         self.thick_sl.resize(30,100)
         self.thick_sl.setMinimum(1)
         self.thick_sl.setMaximum(10)
+        self.thick_sl.setTickInterval(1)
         self.thick_sl.setTickPosition(QSlider.TicksAbove)
         
         self.main_layout.addWidget(self.color_lb)
@@ -150,19 +170,22 @@ class AdjBlock(QWidget):
         self.main_layout.addWidget(self.color_btn)
         self.main_layout.addWidget(self.thick_lb)
         self.main_layout.addWidget(self.thick_sl)
+        if self.pencil.type in ['Rect','Circle']:
+            self.main_layout.addWidget(self.fill_lb)
+            self.main_layout.addWidget(self.fill_btn)
         
         self.setLayout(self.main_layout)
         
         #self.color_sl.valueChanged[int].connect(self.setColor)
         self.thick_sl.valueChanged[int].connect(self.setThick)
         self.show()
-    
+    '''
     def setColor(self,value):
         self.color_sl.setValue(value)
         self.color_lb.setText('Color: '+str(value))
         self.pencil.ChangePenColor('red')
         pass
-    
+    '''
     def setThick(self,value):
         self.thick_sl.setValue(value)
         self.thick_lb.setText('Tickness: '+str(value))
@@ -173,6 +196,17 @@ class AdjBlock(QWidget):
         col = QColorDialog.getColor()
         if col.isValid():
             self.pencil.pencolor = col
+            self.color_btn.setStyleSheet("QPushButton{background-color:"+col.name()+"}"
+                                        "QPushButton{border-radius:5px}"
+                                        "QPushButton{border:1px}")
+    
+    def fillColor(self):
+        col = QColorDialog.getColor()
+        if col.isValid():
+            self.pencil.brush = col
+            self.fill_btn.setStyleSheet("QPushButton{background-color:"+col.name()+"}"
+                                        "QPushButton{border-radius:5px}"
+                                        "QPushButton{border:1px}")
     
 
 if __name__ == "__main__":

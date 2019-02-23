@@ -9,8 +9,7 @@ import cv2
 from Op.Filter import Filter
 #from Op.Paint.Painters import Painter
 from Op.Special.Sit2Anime import Sit2Anime
-from Op.Image.AWB import whiteBalance
-from Op.Image.ACE import ACE
+from Op.Image.AutoAdjust import ACE,AWB,ACA
 from Op.Special.Ink import Ink
 from Op.Special import Pencil
 from PyQt5.QtCore import QThread
@@ -39,7 +38,9 @@ class ProThread(QThread):
         elif self.target == 'AWB':
             self.AWB()
         elif self.target == 'ACE':
-            self.ACE_()
+            self.ACE()
+        elif self.target == 'ACA':
+            self.ACA()
         elif self.target == 'Anime':
             self.Anime()
         elif self.target == 'Painter':
@@ -76,12 +77,15 @@ class ProThread(QThread):
         return
     
     def AWB(self):
-        self.img.changeImg(whiteBalance(self.img.Image))
+        self.img.changeImg(AWB(self.img.Image))
         return
     
-    def ACE_(self):
-        self.img.changeImg(ACE().automatic_color_equalization(self.img.Image))
+    def ACE(self):
+        self.img.changeImg(ACE().zmIceColor(self.img.Image))
         return
+    
+    def ACA(self):
+        self.img.changeImg(ACA(self.img.Image))
     
     def Anime(self):
         sky = cv2.imread(self.content)

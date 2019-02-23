@@ -47,3 +47,9 @@ class OpStack(object):
     
     def re_push(self,item):
         self.restack.append(item)
+    
+    def showStack(self):
+        if self.stack:
+            print([x[-1] for x in self.stack])
+        if self.restack:
+            print([x[-1] for x in self.restack])
