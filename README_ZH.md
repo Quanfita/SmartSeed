@@ -32,6 +32,8 @@
 - 模糊滤镜
 - 撤销与重做操作
 - 滤镜库中的一些特殊滤镜
+- 矩形工具
+- 椭圆工具
 
 ## 使用方法
 
@@ -48,7 +50,7 @@ cd SmartSeed
 pip install -r requirements.txt
 ```
 
-使用到深度学习来实现的一些功能将在下次更新时提供，预训练模型也将会上传到谷歌云端硬盘。
+使用到深度学习来实现的一些功能已提供，预训练模型已上传到[谷歌云端硬盘](https://drive.google.com/open?id=1IIernzA0viaP3rJmZCB4uO7QF077aUk0)。
 
 ### 开始使用
 
