@@ -7,7 +7,7 @@ Created on Sun Jan 27 10:39:53 2019
 import numpy as np
 import cv2
 import Op.Mixed as Mixed
-from PyQt5.QtCore import QSettings
+from PyQt5.QtCore import QSettings,pyqtSignal,QObject
 
 class ImgObject(object):
     def __init__(self,img):
@@ -29,9 +29,10 @@ class ImgObject(object):
     def height(self):
         return self.__height
 
-class LayerStack(object):
-    
+class LayerStack(QObject):
+    signal = pyqtSignal()
     def __init__(self):
+        super().__init__()
         self.layer = []
         self.mix_list = []
         settings = QSettings("tmp.ini", QSettings.IniFormat)
@@ -48,7 +49,10 @@ class LayerStack(object):
         self.Image[:,:,0] = num[2]
         self.Image[:,:,1] = num[1]
         self.Image[:,:,2] = num[0]
-        self.addLayer(0,self.Image)
+        tmp_layer = ImgObject(self.Image)
+        self.layer.insert(0,tmp_layer)
+        self.mix_list.insert(0,'Normal')
+        self.ReMix()
     
     def __str_to_hex(self,s):
         s = [int(c.upper(),16) for c in s]
@@ -65,14 +69,18 @@ class LayerStack(object):
         self.layer.insert(idx,tmp_layer)
         self.mix_list.insert(idx,'Normal')
         self.ReMix()
+        self.signal.emit()
         pass
     
     def delLayer(self,idx):
         self.layer.pop(idx)
         self.mix_list.pop(idx)
+        self.ReMix()
+        self.signal.emit()
         pass
     
     def exchgLayer(self,fore,sup):
+        self.signal.emit()
         pass
     
     def sltLayer(self,idx):
@@ -108,6 +116,7 @@ class LayerStack(object):
         self.Image = img
         self.__width = self.Image.shape[1]
         self.__height = self.Image.shape[0]
+        self.signal.emit()
     
     def ImgInfo(self):
         return self.__width,self.__height
