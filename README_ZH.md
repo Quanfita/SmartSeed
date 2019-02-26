@@ -32,27 +32,43 @@
 - 模糊滤镜
 - 撤销与重做操作
 - 滤镜库中的一些特殊滤镜
+- 矩形工具
+- 椭圆工具
+- 图层结构
 
 ## 使用方法
 
-### 下载
+### 使用命令行打开
+
+#### 1. 下载
 
 ```shell
 git clone https://github.com/Quanfita/SmartSeed.git
 cd SmartSeed
 ```
 
-### 依赖库
+#### 2. 依赖库
 
 ```shell
 pip install -r requirements.txt
 ```
 
-使用到深度学习来实现的一些功能将在下次更新时提供，预训练模型也将会上传到谷歌云端硬盘。
-
-### 开始使用
+#### 3. 开始使用
 
 ```shell
 python main.py
 ```
 
+### 可执行文件
+
+我们之后将提供Windows版本的.exe文件。
+
+## 预训练模型
+
+使用到深度学习来实现的一些功能已提供，预训练模型已上传到[谷歌云端硬盘](https://drive.google.com/open?id=1IIernzA0viaP3rJmZCB4uO7QF077aUk0)。
+
+## 参考
+
+[1] [Style2Paints](https://github.com/lllyasviel/style2paints)
+
+[2] [DeblurGAN-tf](https://github.com/dongheehand/DeblurGAN-tf)

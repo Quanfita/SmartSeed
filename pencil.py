@@ -6,17 +6,24 @@ Created on Sat Jan 26 15:14:25 2019
 """
 
 import sys
+import cv2
 import ops
-from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, 
+from ImgObj import LayerStack
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QScrollArea,
                              QSlider, QVBoxLayout, QPushButton, QColorDialog)
-from PyQt5.QtGui import (QPainter, QPen, QColor, QGuiApplication)
-from PyQt5.QtCore import Qt
+from PyQt5.QtGui import (QPainter, QPen, QColor, QGuiApplication,QPalette,QBrush)
+from PyQt5.QtCore import Qt,pyqtSignal
 
 class Draw(QLabel):
-    
-    def __init__(self, stack, img, fig):
+    signal = pyqtSignal()
+    def __init__(self):
         super(Draw,self).__init__()
+        self.setAutoFillBackground(True)
         self.setMouseTracking(False)
+        palette = QPalette()
+        palette.setBrush(QPalette.Window,QBrush(Qt.Dense7Pattern))
+        self.setPalette(palette)
+        self.setAlignment(Qt.AlignCenter)
         self.pos_xy = []
         self.pos_tmp = []
         self.brush = QColor(0,0,0,0)
@@ -25,10 +32,10 @@ class Draw(QLabel):
         self.thickness = 1
         self.linestyle = Qt.SolidLine
         self.lb_x,self.lb_y,self.lb_w,self.lb_h = 0,0,0,0
-        self.OS = stack
-        self.super_img = img
+        #self.OS = stack
+        #self.super_img = img
         self.flag = False
-        self.fig = fig
+        #self.fig = fig
         self.type = None
     
     def chgType(self,tp):
@@ -105,6 +112,7 @@ class Draw(QLabel):
             self.flag = False
             self.update()
             self.saveImg()
+            self.Clean()
     
     def ChangePenColor(self, color):
         self.penColor = color
@@ -120,16 +128,19 @@ class Draw(QLabel):
         self.point_end = (-1,-1)
     
     def saveImg(self):
+        self.signal.emit()
+        '''
         pqscreen  = QGuiApplication.primaryScreen()
         pixmap2 = pqscreen.grabWindow(self.winId(), self.lb_x,
                                       self.lb_y,self.lb_w,self.lb_h)
         pixmap2.save('./tmp/sceen.jpg')
-        self.super_img.changeImg(ops.cvtPixmap2CV(pixmap2))
-        self.OS.push([self.super_img.Image,self.type])
+        
+        #self.super_img.changeImg(ops.cvtPixmap2CV(pixmap2))
+        #self.OS.push([self.super_img.Image,self.type])
         if self.fig == None:
             return
         else:
-            self.fig()
+            self.fig()'''
 
 class AdjBlock(QWidget):
     def __init__(self,pencil):
@@ -207,10 +218,45 @@ class AdjBlock(QWidget):
             self.fill_btn.setStyleSheet("QPushButton{background-color:"+col.name()+"}"
                                         "QPushButton{border-radius:5px}"
                                         "QPushButton{border:1px}")
+
+class Canvas(QWidget):
+    signal = pyqtSignal()
+    def __init__(self):
+        super().__init__()
+        self.setMinimumSize(250, 300)
+        self.draw = Draw()
+        self.scroll = QScrollArea()
+        self.scroll.setAlignment(Qt.AlignCenter)
+        self.scroll.setWidget(self.draw)
+        self.layers = LayerStack()
+        self.draw.resize(*self.layers.ImgInfo())
+        self.vbox = QVBoxLayout()
+        self.vbox.addWidget(self.scroll)
+        self.setLayout(self.vbox)
+        self.draw.signal.connect(self.img_update)
+        self.layers.signal.connect(self.imgOperate)
+        self.layers.changeImg(self.layers.Image)
     
+    def img_update(self):
+        pqscreen  = QGuiApplication.primaryScreen()
+        pixmap2 = pqscreen.grabWindow(self.draw.winId(),0,0,
+                                      #self.draw.geometry().x(),
+                                      #self.draw.geometry().y(),
+                                      self.draw.width(),self.draw.height())
+        pixmap2.save('./tmp/sceen.jpg')
+        self.draw.setPixmap(pixmap2)
+        pass
+    
+    def imgOperate(self):
+        self.draw.setPixmap(ops.cvtCV2Pixmap(self.layers.Image))
+        cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
+        self.signal.emit()
+        pass
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    pyqt_learn = Draw()
+    #pyqt_learn = Draw()
+    pyqt_learn = Canvas()
     pyqt_learn.show()
     app.exec_()

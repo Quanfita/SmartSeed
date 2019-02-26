@@ -10,17 +10,16 @@ import cv2
 import sip
 import ops
 import logger
-from pencil import Draw, AdjBlock
+from pencil import AdjBlock, Canvas
 import numpy as np
 from Basic import AdjDialog
 from Thread import ProThread
-from ImgObj import ImgObject
 from Stack import OpStack
-from LayerView import LayerBox
+from LayerView import LayerMain
 from Welcome import Welcome
 from Hist import Hist
 import time
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, 
                              QPushButton, QMessageBox, QDesktopWidget, 
                              QMainWindow, QAction, qApp, QMenu, 
@@ -31,16 +30,16 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip,
 from PyQt5.QtGui import QIcon, QFont
 
 
-class Example(QMainWindow,QDialog):
-    
+class Example(QMainWindow):
+    signal = pyqtSignal()
     def __init__(self):
         #super().__init__()
         super(Example,self).__init__()
         self.OS = OpStack()
         #self.setMouseTracking(False)
         self.pos_xy = []
-        self.img = ImgObject()
-        self.Thr = ProThread(self.img)
+        self.canvas = Canvas()
+        self.Thr = ProThread(self.canvas.layers)
         self.F = Hist()
         #self.F = MyFigure(width=3, height=2, dpi=100)
         self.last_tool = ''
@@ -335,8 +334,8 @@ class Example(QMainWindow,QDialog):
         self.text = "x: {0},  y: {1}".format(x, y)
         #self._size = QSize(480,360)
         #self.canvas = QPixmap(self._size)
-        self.label = Draw(self.OS,self.img,self.refreshShow)
-        self.label.setAlignment(Qt.AlignCenter)
+        #self.label = Draw(self.OS,self.canvas,self.refreshShow)
+        #self.label.setAlignment(Qt.AlignCenter)
         #self.main_vbox.addWidget(menubar)
         #self.main_vbox.addWidget(self.toolbar)
         #self.main_vbox.addWidget(self.label)
@@ -359,7 +358,7 @@ class Example(QMainWindow,QDialog):
         main_info.setObjectName("Info")
         main_info.setFeatures(main_info.DockWidgetFloatable|main_info.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, main_info) 
-        self.layer = LayerBox()
+        self.layer = LayerMain(self.canvas.layers,self.refreshShow)
         self.layer_dock = QDockWidget('Layer')
         self.layer_dock.setWidget(self.layer)
         self.layer_dock.setObjectName("Info")
@@ -371,15 +370,15 @@ class Example(QMainWindow,QDialog):
         #splitter.addWidget(self.F)
         #splitter.setOpaqueResize(False)
         #splitter.setOrientation(Qt.Vertical)
-        self.setCentralWidget(self.label)
+        self.setCentralWidget(self.canvas)
         self.setDockNestingEnabled(True)
         self.resize(1366, 768)
         self.center()
         self.setWindowTitle('SmartSeed')
         self.setWindowIcon(QIcon('./UI/icon_32.png'))        
-        #self.showMaximized()
+        self.showMaximized()
+        self.canvas.signal.connect(self.refreshShow)
         self.show()
-        self.refreshShow()
         
     
     def CreateDockWidget(self, name, widget):  # 定义一个createDock方法创建一个dockwidget
@@ -409,7 +408,7 @@ class Example(QMainWindow,QDialog):
         self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.main_Fig) 
         try:
-            self.F.DrawHistogram(self.img.Image)
+            self.F.DrawHistogram(self.canvas.Image)
             logger.info("Draw Histogram!")
         except:
             logger.warning('None Image!')
@@ -462,9 +461,8 @@ class Example(QMainWindow,QDialog):
     def newBlock(self):
         wel = Welcome()
         if wel.exec_() == QDialog.Accepted:
-            self.img.reset()
-            #self.F.DrawHistogram(self.img)
-            self.info = 'width: {0}\nheight: {1}'.format(self.img.width,self.img.height)
+            #self.F.DrawHistogram(self.canvas)
+            self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
             self.info_lb.setText(self.info)
             self.refreshShow()
     
@@ -481,46 +479,47 @@ class Example(QMainWindow,QDialog):
         else:
             logger.info('ImageName: '+imgName)
         
-        self.img.changeImg(cv2.imread(imgName))
+        self.layer.addLayer(cv2.imread(imgName),imgName.split('/')[-1])
+        #self.canvas.layers.changeImg(cv2.imread(imgName))
         
-        if self.img.Image.size == 1:
+        if self.canvas.layers.Image.size == 1:
             return
-        self.OS.push([np.array(self.img.Image),'openimage'])
-        self.info = 'width: {0}\nheight: {1}'.format(self.img.width,self.img.height)
+        self.OS.push([np.array(self.canvas.layers.Image),'openimage'])
+        self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
         self.info_lb.setText(self.info)
-        #self.F.DrawHistogram(self.img)
+        #self.F.DrawHistogram(self.canvas)
         self.refreshShow()
-        #self.resize(int(1.5*self.img.width),int(1.2*self.img.height))
+        #self.resize(int(1.5*self.canvas.width),int(1.2*self.canvas.height))
         self.center()
     
     def saveSlot(self):
         # 调用存储文件dialog
         fileName, tmp = QFileDialog.getSaveFileName(
-            self, 'Save Image', self.img.imgName, '*.png *.jpg *.bmp', '*.png')
+            self, 'Save Image', 'Untitled', '*.png *.jpg *.bmp', '*.png')
 
         if fileName is '':
             return
-        if self.img.Image.size == 1:
+        if self.canvas.layers.Image.size == 1:
             return
         # 调用opencv写入图像
-        cv2.imwrite(fileName, self.img.Image)
+        cv2.imwrite(fileName, self.canvas.layers.Image)
         
     def refreshShow(self):
         # 提取图像的尺寸和通道, 用于将opencv下的image转换成Qimage
-        #height, width, channel = self.img.shape
+        #height, width, channel = self.canvas.shape
         #bytesPerLine = 3 * width
-        #self.qImg = QImage(self.img.data, width, height, bytesPerLine,
+        #self.qImg = QImage(self.canvas.data, width, height, bytesPerLine,
                            #QImage.Format_RGB888).rgbSwapped()
         # 将Qimage显示出来
-        self.info = 'width: {0}\nheight: {1}'.format(self.img.width,self.img.height)
+        self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
         self.info_lb.setText(self.info)
         #self.showFigure()
-        self.label.setPixmap(ops.cvtCV2Pixmap(self.img.Image))
-        cv2.imwrite('./tmp/error.jpg',self.img.Image)
-        #self.label.resize(self.img.shape[1],self.img.shape[0])
+        #self.label.setPixmap(ops.cvtCV2Pixmap(self.canvas.layers.Image))
+        cv2.imwrite('./tmp/error.jpg',self.canvas.layers.Image)
+        #self.label.resize(self.canvas.shape[1],self.canvas.shape[0])
         #self.canvas = QPixmap.fromImage(self.qImg)
-        self.F.DrawHistogram(self.img.Image)
-        self.chgSize()
+        self.F.DrawHistogram(self.canvas.layers.Image)
+        #self.chgSize()
     
     def setTable(self):
         sender = self.sender()
@@ -554,7 +553,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.start()
         self.showDialog(1)
         logger.info("Doing Filters Successful!")
-        self.OS.push([np.array(self.img.Image),'doFilters'])
+        self.OS.push([np.array(self.canvas.layers.Image),'doFilters'])
         self.refreshShow()
         #self.doFilters(tableName)
     
@@ -563,7 +562,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.start()
         self.showDialog(1)
         logger.info("AWB Successful!")
-        self.OS.push([np.array(self.img.Image),'AWB'])
+        self.OS.push([np.array(self.canvas.layers.Image),'AWB'])
         self.refreshShow()
         
     def ACE(self):
@@ -571,7 +570,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.start()
         self.showDialog(1)
         logger.info('ACE Successful!')
-        self.OS.push([np.array(self.img.Image),'ACE'])
+        self.OS.push([np.array(self.canvas.layers.Image),'ACE'])
         self.refreshShow()
         
     def ACA(self):
@@ -579,7 +578,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.start()
         self.showDialog(1)
         logger.info('ACA Successful!')
-        self.OS.push([np.array(self.img.Image),'ACA'])
+        self.OS.push([np.array(self.canvas.layers.Image),'ACA'])
         self.refreshShow()
     
     def Undo(self):
@@ -593,8 +592,8 @@ class Example(QMainWindow,QDialog):
                 return
             else:
                 [img,op] = self.OS.peek()
-                self.img.changeImg(img.astype(np.uint8))
-                self.label.Clean()
+                self.canvas.layers.changeImg(img.astype(np.uint8))
+                #self.label.Clean()
                 logger.info('Undo Operating to '+op+'!')
                 self.refreshShow()
     
@@ -605,10 +604,10 @@ class Example(QMainWindow,QDialog):
         else:
             self.OS.push(self.OS.re_pop())
             [img,op] = self.OS.peek()
-            self.img.changeImg(img.astype(np.uint8))
+            self.canvas.layers.changeImg(img.astype(np.uint8))
             logger.info('Redo Operating to ' + op + '!')
         self.refreshShow()
-    
+    '''
     def showevent(self,event):
         self.chgSize()
     
@@ -620,14 +619,14 @@ class Example(QMainWindow,QDialog):
     
     def chgSize(self):
 
-        self.label.lb_x = (self.label.width() - self.img.width)//2
-        self.label.lb_y = (self.label.height() - self.img.height)//2
-        self.label.lb_w = self.img.width
-        self.label.lb_h = self.img.height
+        self.label.lb_x = (self.label.width() - self.canvas.layers.width())//2
+        self.label.lb_y = (self.label.height() - self.canvas.layers.height())//2
+        self.label.lb_w = self.canvas.layers.width()
+        self.label.lb_h = self.canvas.layers.height()
         #print(self.label.width(),self.label.height())
         #print(self.label.geometry().x(),self.label.geometry().y())
         #print(self.label.lb_x,self.label.lb_y,self.label.lb_w,self.label.lb_h)
-
+'''
     def disPre(self):
         if self.last_tool == 'Pencil':
             self.pencilAct.setEnabled(True)
@@ -642,38 +641,38 @@ class Example(QMainWindow,QDialog):
         sip.delete(self.tmp_dock)
     
     def pencil(self):
-        self.label.chgType("Pencil")
+        self.canvas.draw.chgType("Pencil")
         self.disPre()
         self.pencilAct.setEnabled(False)
-        self.label.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.label)
+        self.canvas.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.canvas.draw)
         self.tmp_dock = QDockWidget('Pencil Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.tmp_dock.setObjectName("Attributes")
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.label.saveImg()
+        if self.last_tool == '':self.canvas.draw.saveImg()
         self.last_tool = 'Pencil'
         self.refreshShow()
         
     def line(self):
-        self.label.chgType('Line')
+        self.canvas.draw.chgType('Line')
         self.disPre()
         self.lineAct.setEnabled(False)
-        self.label.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.label)
+        self.canvas.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.canvas.draw)
         self.tmp_dock = QDockWidget('Line Attributes')
         self.tmp_dock.setWidget(self.adj_b)
         self.tmp_dock.setObjectName('Attributes')
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.label.saveImg()
+        if self.last_tool == '':self.canvas.draw.saveImg()
         self.last_tool = 'Line'
         self.refreshShow()
         
     
     def showDialog(self,tar=10):
-        num = self.img.pixNum*tar
+        num = self.canvas.layers.pixNum*tar
         self.progress = QProgressDialog(self)
         self.progress.setWindowTitle("请稍等")  
         self.progress.setLabelText("正在操作...")
@@ -700,37 +699,37 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('Anime','./samples/2.jpg')
         self.Thr.start()
         self.showDialog(10)
-        self.OS.push([np.array(self.img.Image),'Anime'])
+        self.OS.push([np.array(self.canvas.layers.Image),'Anime'])
         logger.info('Do Anime Filter Successful!')
         self.refreshShow()
     
     def rect(self):
-        self.label.chgType("Rect")
+        self.canvas.draw.chgType("Rect")
         self.disPre()
         self.rectAct.setEnabled(False)
-        self.label.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.label)
+        self.canvas.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.canvas.draw)
         self.tmp_dock = QDockWidget('Rect Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.tmp_dock.setObjectName("Attributes")
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.label.saveImg()
+        if self.last_tool == '':self.canvas.draw.saveImg()
         self.last_tool = 'Rect'
         self.refreshShow()
     
     def circle(self):
-        self.label.chgType("Circle")
+        self.canvas.draw.chgType("Circle")
         self.disPre()
         self.circleAct.setEnabled(False)
-        self.label.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.label)
+        self.canvas.setCursor(Qt.CrossCursor)
+        self.adj_b = AdjBlock(self.canvas.draw)
         self.tmp_dock = QDockWidget('Circle Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.tmp_dock.setObjectName("Attributes")
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.label.saveImg()
+        if self.last_tool == '':self.canvas.draw.saveImg()
         self.last_tool = 'Circle'
         self.refreshShow()
     
@@ -756,7 +755,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('Painter')
         self.Thr.start()
         self.showDialog(10)
-        self.OS.push([np.array(self.img.Image),'Paint'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'Paint'])
         logger.info('Do Anime Painter Successful!')
         self.refreshShow()
     
@@ -764,7 +763,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('Ink')
         self.Thr.start()
         self.showDialog(10)
-        self.OS.push([np.array(self.img.Image),'Ink'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'Ink'])
         logger.info('Do Ink Style Transfer Successful!')
         self.refreshShow()
     
@@ -772,7 +771,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('Pencil')
         self.Thr.start()
         self.showDialog(10)
-        self.OS.push([np.array(self.img.Image),'PencilDrawing'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'PencilDrawing'])
         logger.info('Do Pencil Drawing Successful!')
         self.refreshShow()
     
@@ -780,7 +779,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('Blur')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'Blur'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'Blur'])
         logger.info('Do Blur Successful!')
         self.refreshShow()
     
@@ -788,7 +787,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('GaussianBlur')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'GaussianBlur'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'GaussianBlur'])
         logger.info('Do Gaussian Blur Successful!')
         self.refreshShow()
     
@@ -796,7 +795,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('MotionBlur')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'MotionBlur'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'MotionBlur'])
         logger.info('Do Motion Blur Successful!')
         self.refreshShow()
     
@@ -804,7 +803,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('RadialBlur')
         self.Thr.start()
         self.showDialog(5)
-        self.OS.push([np.array(self.img.Image),'RadialBlur'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'RadialBlur'])
         logger.info('Do Radial Blur Successful!')
         self.refreshShow()
     
@@ -812,7 +811,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('SmartBlur')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'SmartBlur'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'SmartBlur'])
         logger.info('Do Smart Blur Successful!')
         self.refreshShow()
     
@@ -820,7 +819,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('BlurMore')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'BlurMore'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'BlurMore'])
         logger.info('Do More Blur Successful!')
         self.refreshShow()
     
@@ -828,7 +827,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('USM')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'USM'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'USM'])
         logger.info('Do USM Successful!')
         self.refreshShow()
     
@@ -836,7 +835,7 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('EdgeSharp')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'EdgeSharp'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'EdgeSharp'])
         logger.info('Do Edge Sharp Successful!')
         self.refreshShow()
     
@@ -844,30 +843,30 @@ class Example(QMainWindow,QDialog):
         self.Thr.change('SmartSharp')
         self.Thr.start()
         self.showDialog(1)
-        self.OS.push([np.array(self.img.Image),'SmartSharp'])
+        self.OS.push([np.array(self.canvas.tmp_img.Image),'SmartSharp'])
         logger.info('Do Smart Sharp Successful!')
         self.refreshShow()
     
     def light(self):
-        l = AdjDialog(self.img,'light')
+        l = AdjDialog(self.canvas.layers,'light')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def comp(self):
-        l = AdjDialog(self.img,'comp')
+        l = AdjDialog(self.canvas.layers,'comp')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def custom(self):
-        l = AdjDialog(self.img,'custom')
+        l = AdjDialog(self.canvas.layers,'custom')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def hue(self):
-        l = AdjDialog(self.img,'hue')
+        l = AdjDialog(self.canvas.layers,'hue')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
