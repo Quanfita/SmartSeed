@@ -14,6 +14,8 @@ class Hist(QLabel):
     def __init__(self):
         super().__init__()
         self.setStyleSheet('QLabel{background-color:black}')
+        self.setMaximumSize(300,200)
+        self.setMinimumSize(270,180)
     
     def calcAndDrawHist(self, image, color):  
         hist= cv2.calcHist([image], [0], None, [256], [0.0,255.0])  

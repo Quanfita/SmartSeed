@@ -249,6 +249,7 @@ class Canvas(QWidget):
     
     def imgOperate(self):
         self.draw.setPixmap(ops.cvtCV2Pixmap(self.layers.Image))
+        cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
         self.signal.emit()
         pass
 

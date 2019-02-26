@@ -376,7 +376,7 @@ class Example(QMainWindow):
         self.center()
         self.setWindowTitle('SmartSeed')
         self.setWindowIcon(QIcon('./UI/icon_32.png'))        
-        #self.showMaximized()
+        self.showMaximized()
         self.canvas.signal.connect(self.refreshShow)
         self.show()
         
@@ -479,7 +479,8 @@ class Example(QMainWindow):
         else:
             logger.info('ImageName: '+imgName)
         
-        self.canvas.layers.changeImg(cv2.imread(imgName))
+        self.layer.addLayer(cv2.imread(imgName),imgName.split('/')[-1])
+        #self.canvas.layers.changeImg(cv2.imread(imgName))
         
         if self.canvas.layers.Image.size == 1:
             return

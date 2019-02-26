@@ -5,15 +5,16 @@ Created on Mon Jan 28 20:15:15 2019
 @author: Quanfita
 """
 import sys
-from PyQt5.QtCore import Qt,QSize
+from PyQt5.QtCore import Qt,QSize,pyqtSignal,QItemSelectionModel
 from PyQt5.QtGui import QFont,QBrush,QIcon
 from PyQt5.QtWidgets import (QListWidget,QListWidgetItem,QMenu,QAction,QGroupBox,
                              QHBoxLayout,QPushButton,QWidget,QVBoxLayout,
                              QApplication, QToolBox, QListView,QToolButton, 
-                             QInputDialog, QMessageBox,QAbstractItemView)
+                             QInputDialog, QMessageBox,QAbstractItemView,
+                             QComboBox,QLabel,QLineEdit)
 
 class ListWidget(QListWidget):
-
+    signal = pyqtSignal()
     map_listwidget = []
     def __init__(self):
         super().__init__()
@@ -45,6 +46,7 @@ class ListWidget(QListWidget):
         self.itemDoubleClicked[QListWidgetItem].connect(self.rename)
     
     def getListitems(self):
+        self.signal.emit()
         return self.selectedItems()
 
     def contextMenuEvent(self, event):
@@ -155,11 +157,34 @@ class LayerMain(QWidget):
         self.lay.setAlignment(Qt.AlignCenter)
         self.list = ListWidget()
         self.toolsBox = QGroupBox(self)
+        self.adjBox = QGroupBox(self)
+        self.adjLayout = QHBoxLayout()
         self.toolsLayout = QHBoxLayout()
         self.toolsLayout.setAlignment(Qt.AlignRight)
+        self.opacity_lb = QLabel('Opacity:',self)
+        self.opacity_lb.resize(50,30)
+        self.opacity_val = QLineEdit(self)
+        self.opacity_val.installEventFilter(self)
+        self.opacity_val.resize(30,30)
+        self.opacity_val.setPlaceholderText('100%')
+        mix_info = ['Normal','Screen','Multiply','Overlay','SoftLight',
+                    'HardLight','LinearAdd','ColorBurn','LinearBurn',
+                    'ColorDodge','LinearDodge','LighterColor','VividLight',
+                    'LinearLight','PinLight','HardMix','Difference','Exclusion',
+                    'Subtract','Divide','Hue']
+        self.mix_combox = QComboBox(self)
+        self.mix_combox.addItems(mix_info)
+        self.mix_combox.resize(60,30)
+        self.adjLayout.addWidget(self.mix_combox)
+        self.adjLayout.addWidget(self.opacity_lb)
+        self.adjLayout.addWidget(self.opacity_val)
+        self.adjBox.setLayout(self.adjLayout)
+        self.lay.addWidget(self.adjBox)
+        self.mix_combox.activated[str].connect(self.select)
         self.lay.addWidget(self.list)
         self.setWindowFlags(Qt.Dialog)
-        self.setMinimumSize(100,30)
+        self.setMinimumSize(270,300)
+        self.setMaximumSize(300,500)
         self.del_btn = QToolButton(self)
         self.new_btn = QToolButton(self)
         self.cpy_btn = QToolButton(self)
@@ -184,11 +209,14 @@ class LayerMain(QWidget):
         self.toolsBox.setLayout(self.toolsLayout)
         self.lay.addWidget(self.toolsBox)
         self.setLayout(self.lay)
+        self.list.signal.connect(self.sltLayer)
+        self.list.setCurrentRow(0)
         self.show()
         
     def newLayer(self):
         cur = self.list.currentItem()
         ind = self.list.row(cur)
+        lsize = len(self.list)
         while True:
             newname = QInputDialog.getText(self, "Please Input Name", "")
             if newname[0] in self.list.list_names:
@@ -203,9 +231,19 @@ class LayerMain(QWidget):
                 break
             else:
                 self.list.addItemSlot(ind,newname[0])
-                self.img.addLayer(len(self.list) - ind - 1)
+                self.img.addLayer(lsize - ind)
                 self.refresh()
                 break
+        pass
+    
+    def addLayer(self,img,name):
+        cur = self.list.currentItem()
+        ind = self.list.row(cur)
+        lsize = len(self.list)
+        self.list.addItemSlot(ind,name)
+        self.img.addLayer(lsize - ind,img)
+        self.list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
+        self.refresh()
         pass
     
     def delLayer(self):
@@ -220,8 +258,10 @@ class LayerMain(QWidget):
             if reply == QMessageBox.Yes:
                 cur = self.list.currentItem()
                 ind = self.list.row(cur)
+                lsize = len(self.list)
                 self.list.deleteItemSlot()
-                self.img.delLayer(len(self.list) - ind - 1)
+                self.img.delLayer(lsize - ind - 1)
+                self.list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
                 self.refresh()
         pass
     
@@ -242,12 +282,39 @@ class LayerMain(QWidget):
                     break
             self.list.addItemSlot(ind,name)
             self.img.cpyLayer(ind)
+            self.list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
             self.refresh()
+        pass
+    
+    def sltLayer(self):
+        cur = self.list.currentItem()
+        ind = self.list.row(cur)
+        lsize = len(self.list)
+        print(self.img.mix_list[lsize - ind - 1])
+        self.mix_combox.setCurrentText(self.img.mix_list[lsize - ind - 1])
+        self.img.sltLayer(lsize - ind - 1)
+        if ind  == lsize - 1:
+            self.img.mix_list[lsize - ind - 1] = 'Normal'
+            self.mix_combox.setCurrentText('Normal')
+            self.mix_combox.setEnabled(False)
+            self.opacity_val.setEnabled(False)
+        else:
+            self.mix_combox.setEnabled(True)
+            self.opacity_val.setEnabled(True)
+        pass
+    
+    def select(self,s):
+        cur = self.list.currentItem()
+        ind = self.list.row(cur)
+        lsize = len(self.list)
+        print(lsize,ind,lsize - ind - 1)
+        self.img.setMix(lsize - ind - 1,s)
+        self.refresh()
         pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     #ex = LayerTools()
     #ex.show()
-    ex = LayerMain(None)
+    ex = LayerMain(None,print)
     sys.exit(app.exec_())
