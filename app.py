@@ -8,7 +8,6 @@ Created on Fri Jan 25 10:09:14 2019
 import sys
 import cv2
 import sip
-import ops
 import logger
 from pencil import AdjBlock, Canvas
 import numpy as np
@@ -118,6 +117,14 @@ class Example(QMainWindow):
         ACAAct = QAction('ACA',self)
         ACAAct.setStatusTip('Auto Contrast Adjustment')
         ACAAct.triggered.connect(self.ACA)
+        
+        cansizeAct = QAction('CanvasSize',self)
+        cansizeAct.setStatusTip('Resize the canvas')
+        cansizeAct.triggered.connect(self.canSize)
+        
+        imgsizeAct = QAction('ImageSize',self)
+        imgsizeAct.setStatusTip('Resize the image')
+        imgsizeAct.triggered.connect(self.imgSize)
         
         undoAct = QAction(QIcon('./UI/undo.svg'),'Undo',self)
         undoAct.setShortcut('Ctrl+Z')
@@ -295,6 +302,8 @@ class Example(QMainWindow):
         imageMenu.addAction(ACEAct)
         imageMenu.addAction(ACAAct)
         imageMenu.addMenu(adjustMenu)
+        imageMenu.addAction(cansizeAct)
+        imageMenu.addAction(imgsizeAct)
         
         editMenu = menubar.addMenu('Edit')
         editMenu.addAction(undoAct)
@@ -352,6 +361,7 @@ class Example(QMainWindow):
         self.main_Fig.setWidget(self.F)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.main_Fig.setObjectName("Figure")
         self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable)    #  设置dockwidget的各类属性
+        #self.main_Fig.setStyleSheet('QDockWidget{border: 1px solid black;}')
         self.addDockWidget(Qt.RightDockWidgetArea, self.main_Fig) 
         main_info = QDockWidget('Information')  # 实例化dockwidget类
         main_info.setWidget(self.info_lb)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
@@ -372,6 +382,7 @@ class Example(QMainWindow):
         #splitter.setOrientation(Qt.Vertical)
         self.setCentralWidget(self.canvas)
         self.setDockNestingEnabled(True)
+        self.setMinimumSize(800,480)
         self.resize(1366, 768)
         self.center()
         self.setWindowTitle('SmartSeed')
@@ -636,38 +647,34 @@ class Example(QMainWindow):
             self.rectAct.setEnabled(True)
         elif self.last_tool == 'Circle':
             self.circleAct.setEnabled(True)
+        elif self.last_tool == 'Fill':
+            self.fillAct.setEnabled(True)
+        elif self.last_tool == 'Crop':
+            self.cropAct.setEnabled(True)
+        elif self.last_tool == 'Dropper':
+            self.dropperAct.setEnabled(True)
+        elif self.last_tool == 'Eraser':
+            self.eraserAct.setEnabled(True)
+        elif self.last_tool == 'Brush':
+            self.brushAct.setEnabled(True)
+        elif self.last_tool == 'Stamp':
+            self.stampAct.setEnabled(True)
         else: return
         self.removeDockWidget(self.tmp_dock)
         sip.delete(self.tmp_dock)
     
-    def pencil(self):
-        self.canvas.draw.chgType("Pencil")
+    def perOpTools(self,s):
+        self.canvas.draw.chgType(s)
         self.disPre()
-        self.pencilAct.setEnabled(False)
-        self.canvas.setCursor(Qt.CrossCursor)
+        self.canvas.chgCursor(s)
         self.adj_b = AdjBlock(self.canvas.draw)
-        self.tmp_dock = QDockWidget('Pencil Attributes')  # 实例化dockwidget类
+        self.tmp_dock = QDockWidget(s+' Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.tmp_dock.setObjectName("Attributes")
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
         if self.last_tool == '':self.canvas.draw.saveImg()
-        self.last_tool = 'Pencil'
-        self.refreshShow()
-        
-    def line(self):
-        self.canvas.draw.chgType('Line')
-        self.disPre()
-        self.lineAct.setEnabled(False)
-        self.canvas.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.canvas.draw)
-        self.tmp_dock = QDockWidget('Line Attributes')
-        self.tmp_dock.setWidget(self.adj_b)
-        self.tmp_dock.setObjectName('Attributes')
-        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)
-        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.canvas.draw.saveImg()
-        self.last_tool = 'Line'
+        self.last_tool = s
         self.refreshShow()
         
     
@@ -703,52 +710,54 @@ class Example(QMainWindow):
         logger.info('Do Anime Filter Successful!')
         self.refreshShow()
     
+    def pencil(self):
+        self.perOpTools("Pencil")
+        self.pencilAct.setEnabled(False)
+        pass
+        
+    def line(self):
+        self.perOpTools('Line')
+        self.lineAct.setEnabled(False)
+        pass
+    
     def rect(self):
-        self.canvas.draw.chgType("Rect")
-        self.disPre()
+        self.perOpTools("Rect")
         self.rectAct.setEnabled(False)
-        self.canvas.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.canvas.draw)
-        self.tmp_dock = QDockWidget('Rect Attributes')  # 实例化dockwidget类
-        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        self.tmp_dock.setObjectName("Attributes")
-        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.canvas.draw.saveImg()
-        self.last_tool = 'Rect'
-        self.refreshShow()
+        pass
     
     def circle(self):
-        self.canvas.draw.chgType("Circle")
-        self.disPre()
+        self.perOpTools("Circle")
         self.circleAct.setEnabled(False)
-        self.canvas.setCursor(Qt.CrossCursor)
-        self.adj_b = AdjBlock(self.canvas.draw)
-        self.tmp_dock = QDockWidget('Circle Attributes')  # 实例化dockwidget类
-        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        self.tmp_dock.setObjectName("Attributes")
-        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.canvas.draw.saveImg()
-        self.last_tool = 'Circle'
-        self.refreshShow()
+        pass
     
     def fill(self):
+        self.perOpTools('Fill')
+        self.fillAct.setEnabled(False)
         pass
     
     def crop(self):
+        self.perOpTools("Crop")
+        self.cropAct.setEnabled(False)
         pass
     
     def dropper(self):
+        self.perOpTools("Dropper")
+        self.dropperAct.setEnabled(False)
         pass
     
     def eraser(self):
+        self.perOpTools("Eraser")
+        self.eraserAct.setEnabled(False)
         pass
     
     def brush(self):
+        self.perOpTools("Brush")
+        self.brushAct.setEnabled(False)
         pass
     
     def stamp(self):
+        self.perOpTools("Stamp")
+        self.stampAct.setEnabled(False)
         pass
     
     def Paint(self):
@@ -870,6 +879,14 @@ class Example(QMainWindow):
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
+    
+    def canSize(self):
+        self.canvas.canResize()
+        pass
+    
+    def imgSize(self):
+        self.canvas.imgResize()
+        pass
         
 
 if __name__ == '__main__':

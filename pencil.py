@@ -9,10 +9,12 @@ import sys
 import cv2
 import ops
 from ImgObj import LayerStack
-from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QScrollArea,
-                             QSlider, QVBoxLayout, QPushButton, QColorDialog)
-from PyQt5.QtGui import (QPainter, QPen, QColor, QGuiApplication,QPalette,QBrush)
-from PyQt5.QtCore import Qt,pyqtSignal
+from PyQt5.QtWidgets import (QApplication, QWidget, QLabel, QScrollArea,QDialog,
+                             QSlider, QVBoxLayout, QPushButton, QColorDialog,
+                             QLineEdit)
+from PyQt5.QtGui import (QPainter, QPen, QColor, QGuiApplication,
+                         QIcon,QPalette,QBrush,QRegExpValidator)
+from PyQt5.QtCore import Qt,pyqtSignal,QRegExp,QSettings
 
 class Draw(QLabel):
     signal = pyqtSignal()
@@ -127,6 +129,9 @@ class Draw(QLabel):
         self.point_start = (-1,-1)
         self.point_end = (-1,-1)
     
+    def resizeSelf(self,w,h):
+        self.resize(w,h)
+    
     def saveImg(self):
         self.signal.emit()
         '''
@@ -204,7 +209,7 @@ class AdjBlock(QWidget):
         pass
     
     def chooseColor(self):
-        col = QColorDialog.getColor()
+        col = QColorDialog.getColor(options=QColorDialog.ShowAlphaChannel)
         if col.isValid():
             self.pencil.pencolor = col
             self.color_btn.setStyleSheet("QPushButton{background-color:"+col.name()+"}"
@@ -212,7 +217,7 @@ class AdjBlock(QWidget):
                                         "QPushButton{border:1px}")
     
     def fillColor(self):
-        col = QColorDialog.getColor()
+        col = QColorDialog.getColor(options=QColorDialog.ShowAlphaChannel)
         if col.isValid():
             self.pencil.brush = col
             self.fill_btn.setStyleSheet("QPushButton{background-color:"+col.name()+"}"
@@ -252,7 +257,106 @@ class Canvas(QWidget):
         cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
         self.signal.emit()
         pass
+    
+    def chgCursor(self,tar=None):
+        if tar in ['Pencil','Line','Rect','Circle']:
+            self.setCursor(Qt.CrossCursor)
+        else:
+            self.setCursor(Qt.ArrowCursor)
+            
+    def imgResize(self):
+        rd = ResizeDialog('Canvas',self.layers.ImgInfo)
+        if rd.exec_() == QDialog.Accepted:
+            settings = QSettings("tmp.ini", QSettings.IniFormat)
+            try:
+                w = eval(settings.value("width"))
+                h = eval(settings.value("height"))
+            except TypeError:
+                w = settings.value("width")
+                h = settings.value("height")
+            self.layers.reset(w,h)
+            self.draw.resizeSelf(w,h)
+            self.signal.emit()
+        rd.close()
+        pass
+    
+    def canResize(self):
+        rd = ResizeDialog('Canvas',self.layers.ImgInfo)
+        if rd.exec_() == QDialog.Accepted:
+            settings = QSettings("tmp.ini", QSettings.IniFormat)
+            try:
+                w = eval(settings.value("width"))
+                h = eval(settings.value("height"))
+            except TypeError:
+                w = settings.value("width")
+                h = settings.value("height")
+            self.layers.resize(w,h)
+            self.draw.resizeSelf(w,h)
+            self.signal.emit()
+        rd.close()
+        pass
 
+class ResizeDialog(QDialog):
+    
+    def __init__(self,tar,sizeFun):
+        super().__init__()
+        self.target = tar
+        self.setWindowModality(Qt.ApplicationModal)
+        self.resize(640,480)
+        self.setWindowTitle('Resize '+self.target)
+        self.setWindowIcon(QIcon('./UI/icon_32.png'))
+        self.canvas_width, self.canvas_height = sizeFun()
+        
+        self.w_lb = QLabel('width:',self)
+        self.w_lb.setAlignment(Qt.AlignLeft)
+        self.w_lb.setGeometry(180,120,80,20)
+        
+        self.h_lb = QLabel('height:',self)
+        self.h_lb.setAlignment(Qt.AlignLeft)
+        self.h_lb.setGeometry(180,200,80,20)
+        
+        self.w_line = QLineEdit(self)
+        self.w_line.installEventFilter(self)
+        self.w_line.setGeometry(180,150,50,30)
+        self.w_line.setPlaceholderText('512')
+        
+        self.h_line = QLineEdit(self)
+        self.h_line.installEventFilter(self)
+        self.h_line.setGeometry(180,230,50,30)
+        self.h_line.setPlaceholderText('512')
+        
+        self.ok_btn = QPushButton('OK',self)
+        self.ok_btn.setGeometry(350,400,80,30)
+        self.ok_btn.setFocus(True)
+        self.ok_btn.setDefault(True)
+        self.ok_btn.clicked.connect(self.turnBack)
+        self.cancel_btn = QPushButton('Cancel',self)
+        self.cancel_btn.setGeometry(250,400,80,30)
+        self.cancel_btn.clicked.connect(self.close)
+        
+        regx = QRegExp("^[1-9][0-9]{3}$")
+        validator_w = QRegExpValidator(regx, self.w_line)
+        validator_h = QRegExpValidator(regx, self.h_line)
+        self.w_line.setValidator(validator_w)
+        self.h_line.setValidator(validator_h)
+        
+        self.show()
+        
+    def turnBack(self):
+        if self.w_line.text() != '' and self.h_line.text()!='':
+            self.canvas_width = int(self.w_line.text())
+            self.canvas_height = int(self.h_line.text())
+        elif self.w_line.text() != '':
+            self.canvas_width = int(self.w_line.text())
+        elif self.h_line.text()!='':
+            self.canvas_height = int(self.h_line.text())
+        settings = QSettings("tmp.ini", QSettings.IniFormat)
+        settings.setValue("width",self.canvas_width)
+        settings.setValue("height", self.canvas_height)
+        '''
+        logger.info('Create new canvas as '+str(self.canvas_color)+
+                    ' with '+str(self.canvas_width)+'x'+str(self.canvas_height))'''
+        self.accept()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
