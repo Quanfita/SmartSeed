@@ -30,33 +30,33 @@ class Welcome(QDialog):
         
         self.w_lb = QLabel('width:',self)
         self.w_lb.setAlignment(Qt.AlignLeft)
-        self.w_lb.setGeometry(180,120,80,30)
+        self.w_lb.setGeometry(180,120,80,20)
         
         self.h_lb = QLabel('height:',self)
         self.h_lb.setAlignment(Qt.AlignLeft)
-        self.h_lb.setGeometry(180,200,80,30)
+        self.h_lb.setGeometry(180,200,80,20)
         
         self.w_line = QLineEdit(self)
         self.w_line.installEventFilter(self)
-        self.w_line.setGeometry(180,160,50,30)
+        self.w_line.setGeometry(180,150,50,30)
         self.w_line.setPlaceholderText('512')
         
         self.h_line = QLineEdit(self)
         self.h_line.installEventFilter(self)
-        self.h_line.setGeometry(180,240,50,30)
+        self.h_line.setGeometry(180,230,50,30)
         self.h_line.setPlaceholderText('512')
         
         self.color_lb = QLabel('BackGround Content:',self)
         self.color_lb.setAlignment(Qt.AlignLeft)
-        self.color_lb.setGeometry(180,280,150,30)
+        self.color_lb.setGeometry(180,280,150,20)
         
         pix_info = ['px','cm','inch']
         self.pix_combox = QComboBox(self)
         self.pix_combox.addItems(pix_info)
-        self.pix_combox.setGeometry(250,160,100,30)
+        self.pix_combox.setGeometry(250,150,100,30)
         
         self.color_btn = QPushButton(self)
-        self.color_btn.setGeometry(350,320,30,30)
+        self.color_btn.setGeometry(350,310,30,30)
         self.color_btn.setStyleSheet("QPushButton{background-color:white}"
                                      "QPushButton{border-radius:5px}"
                                      "QPushButton{border:1px}")
@@ -65,11 +65,13 @@ class Welcome(QDialog):
         color_info = ['White','Black','Background Color']
         self.color_combox = QComboBox(self)
         self.color_combox.addItems(color_info)
-        self.color_combox.setGeometry(180,320,150,30)
+        self.color_combox.setGeometry(180,310,150,30)
         self.color_combox.activated[str].connect(self.select)
         
         self.ok_btn = QPushButton('OK',self)
         self.ok_btn.setGeometry(350,400,80,30)
+        self.ok_btn.setFocus(True)
+        self.ok_btn.setDefault(True)
         self.ok_btn.clicked.connect(self.turnBack)
         self.cancel_btn = QPushButton('Cancel',self)
         self.cancel_btn.setGeometry(250,400,80,30)

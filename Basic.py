@@ -126,6 +126,7 @@ class AdjDialog(QDialog):
     def saveImage(self):
         self.__img.changeImg(self.__tmp_img)
         self.accept()
+        self.close()
 
 if __name__ == '__main__':
     '''

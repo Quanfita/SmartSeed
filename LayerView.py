@@ -35,9 +35,9 @@ class ListWidget(QListWidget):
         self.addItem(item)
         
     def Ui_init(self):
-        self.setIconSize(QSize(20,20))
-        self.setStyleSheet("QListWidget{border:1px solid gray; color:black; }"
-                        "QListWidget::Item{padding-top:20px; padding-bottom:4px; }"
+        self.setIconSize(QSize(60,40))
+        self.setStyleSheet("QListWidget{border:1px solid gray; color:black; background:transparent;}"
+                        "QListWidget::Item{padding-top:5px; padding-bottom:5px; }"
                         "QListWidget::Item:hover{background:skyblue; }"
                         "QListWidget::item:selected:!active{border-width:0px; background:lightgreen; }"
                         )
@@ -157,7 +157,9 @@ class LayerMain(QWidget):
         self.lay.setAlignment(Qt.AlignCenter)
         self.list = ListWidget()
         self.toolsBox = QGroupBox(self)
+        self.toolsBox.setStyleSheet("QGroupBox{border:none;padding-right:0px;padding-left:0px;margin:0px;}")
         self.adjBox = QGroupBox(self)
+        self.adjBox.setStyleSheet("QGroupBox{border:none;}")
         self.adjLayout = QHBoxLayout()
         self.toolsLayout = QHBoxLayout()
         self.toolsLayout.setAlignment(Qt.AlignRight)
@@ -200,6 +202,9 @@ class LayerMain(QWidget):
         self.del_btn.setIcon(QIcon('./UI/trash.svg'))
         self.new_btn.setIcon(QIcon('./UI/new.svg'))
         self.cpy_btn.setIcon(QIcon('./UI/copy.svg'))
+        self.new_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
+        self.cpy_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
+        self.del_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
         self.del_btn.clicked.connect(self.delLayer)
         self.new_btn.clicked.connect(self.newLayer)
         self.cpy_btn.clicked.connect(self.cpyLayer)
@@ -261,7 +266,7 @@ class LayerMain(QWidget):
                 lsize = len(self.list)
                 self.list.deleteItemSlot()
                 self.img.delLayer(lsize - ind - 1)
-                self.list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
+                self.list.setCurrentRow(ind-1,QItemSelectionModel.ClearAndSelect)
                 self.refresh()
         pass
     
@@ -290,7 +295,7 @@ class LayerMain(QWidget):
         cur = self.list.currentItem()
         ind = self.list.row(cur)
         lsize = len(self.list)
-        print(self.img.mix_list[lsize - ind - 1])
+        #print(self.img.mix_list[lsize - ind - 1])
         self.mix_combox.setCurrentText(self.img.mix_list[lsize - ind - 1])
         self.img.sltLayer(lsize - ind - 1)
         if ind  == lsize - 1:
@@ -307,7 +312,7 @@ class LayerMain(QWidget):
         cur = self.list.currentItem()
         ind = self.list.row(cur)
         lsize = len(self.list)
-        print(lsize,ind,lsize - ind - 1)
+        #print(lsize,ind,lsize - ind - 1)
         self.img.setMix(lsize - ind - 1,s)
         self.refresh()
         pass

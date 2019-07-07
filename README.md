@@ -36,6 +36,13 @@ Fix some bugs, add new features:
 - Ellipse tool
 - Layer structure
 
+### v 1.2
+
+fix the bug of Layer structure, add new features:
+
+- Canvas size
+- Image size
+
 ## Usage
 
 ### Use shell
