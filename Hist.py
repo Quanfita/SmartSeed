@@ -13,9 +13,9 @@ class Hist(QLabel):
     
     def __init__(self):
         super().__init__()
-        self.setStyleSheet('QLabel{background-color:transparent;}')
         self.setMaximumSize(300,200)
         self.setMinimumSize(270,180)
+        self.setStyleSheet('QLabel{color:white;background-color:#535353;border:1px solid #282828;}')
     
     def calcAndDrawHist(self, image, color):  
         hist= cv2.calcHist([image], [0], None, [256], [0.0,255.0])  
@@ -36,6 +36,11 @@ class Hist(QLabel):
         h_g = self.calcAndDrawHist(g,(0,255,0))
         h_r = self.calcAndDrawHist(r,(0,0,255))
         res = h_b + h_g + h_r
+        '''
+        for i in range(res.shape[0]):
+            for j in range(res.shape[1]):
+                if res[i,j].any() == 0:
+                    res[i,j,:] = 83'''
         res = cv2.resize(res,(self.width(),self.height()))
         res = cv2.cvtColor(res,cv2.COLOR_BGR2RGB)
         self.setPixmap(ops.cvtCV2Pixmap(res))

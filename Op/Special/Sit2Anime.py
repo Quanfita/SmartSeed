@@ -4,12 +4,17 @@ Created on Fri Jan 25 09:53:20 2019
 
 @author: Quanfita
 """
-
+import os
 import cv2
 import numpy as np
 import logger
 
 class Sit2Anime(object):
+    def __init__(self,tablepath):
+        #tablepath=os.path.dirname(os.path.abspath(__file__))
+        self.local = cv2.imread(tablepath+'/lookup-table.png')
+        self.transport = cv2.imread(tablepath+'/lookup-table_tmp1.jpg')
+        self.lambda_res()
 
     def skyRegion(self,picname):
         iLow = np.array([100,43,46])
@@ -74,7 +79,17 @@ class Sit2Anime(object):
         l.append(a)
         l.append(b)
         return l
-    
+
+    def lambda_res(self):
+        self.x = np.zeros((256,256),dtype=np.int32)
+        self.y = np.zeros((256,256),dtype=np.int32)
+        a = lambda x,y : y //4 + (x // 32)*64
+        b = lambda x,z : z // 4 + ((x % 32) // 4)*64
+        for i in range(256):
+            for j in range(256):
+                self.x[i,j] = a(i,j)
+                self.y[i,j] = b(i,j)
+    '''
     def myFilter(self,orimap,newmap,picname):
         ori = orimap#cv2.imread(orimap)
         new = newmap#cv2.imread(newmap)
@@ -84,7 +99,22 @@ class Sit2Anime(object):
                 pos = self.findPos(my[i][j],ori)
                 my[i][j] = new[pos[0],pos[1]]
         return my
-    
+    '''
+
+    def myFilter(self,orimap,newmap,picname):
+        ori = orimap#cv2.imread(orimap)
+        new = newmap#cv2.imread(newmap)
+        my = picname#cv2.imread(picname)
+        #z,y,x = my[:,:,0],my[:,:,1],my[:,:,2]
+        #a = y // 4 + (x // 32)*64
+        #b = z // 4 + ((x % 32) // 4)*64
+        for i in range(len(my)):
+            for j in range(len(my[0])):
+                my[i,j] = new[self.x[my[i,j,0],my[i,j,1]],self.y[my[i,j,0],my[i,j,2]]]
+                #my[i,j] = new[b[i,j],a[i,j]]
+                #my[i][j] = new[self.findPos(my[i][j],ori)]
+        return my
+
     def oilPainting(self,img, templateSize, bucketSize, step):#templateSize模板大小,bucketSize桶阵列,step模板滑动步长
      
         gray = cv2.cvtColor(img,cv2.COLOR_RGB2GRAY)
@@ -134,18 +164,18 @@ class Sit2Anime(object):
                         oilImg[m+i,n+j] = (bucketsMean[0],bucketsMean[1],bucketsMean[2])
         return  oilImg
     
-    def DoProcess(self,img,sky,tablepath):
-        local = cv2.imread(tablepath+'/lookup-table.png')
-        transport = cv2.imread(tablepath+'/lookup-table_tmp1.jpg')
+    def DoProcess(self,img):
+        #local = cv2.imread(tablepath+'/lookup-table.png')
+        #transport = cv2.imread(tablepath+'/lookup-table_tmp1.jpg')
         logger.info("Start processing...")
         dst = self.shift(img)
         #oil = self.oilPainting(img,1,8,1)
         #dst = (0.4*oil + 0.6*dst).astype(np.uint8)
-        logger.info("Processing Sky Region.")
-        mask = self.skyRegion(dst)
-        clone = self.seamClone(sky,dst,mask)
+        #logger.info("Processing Sky Region.")
+        #mask = self.skyRegion(dst)
+        #clone = self.seamClone(sky,dst,mask)
         logger.info('Doing Filter.')
-        res = self.myFilter(local,transport,clone)
+        res = self.myFilter(self.local,self.transport,dst)
         #cv2.imwrite(outputname,res)
         logger.info('Successful!')
         return res

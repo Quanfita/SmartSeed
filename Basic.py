@@ -33,7 +33,7 @@ def custom(img,adj):
 def hue(img,adj):
     hls = cv2.cvtColor(img,cv2.COLOR_BGR2HLS)
     hls = hls / 180
-    hls[:, :, 0] = (1.0 + adj / 100.0) * hls[:, :, 0]
+    hls[:, :, 0] = (1.0 + adj / 360.0) * hls[:, :, 0]
     hls[:, :, 0][hls[:, :, 0] > 1] -= 1
     hls = (hls * 180).astype(np.uint8)
     tmp = cv2.cvtColor(hls,cv2.COLOR_HLS2BGR)
@@ -54,8 +54,14 @@ def light(img,adj):
 class AdjDialog(QDialog):
     def __init__(self,img,tar):
         super(AdjDialog,self).__init__()
+        self.setStyleSheet('QDialog{color:white;background-color:#535353;}'
+                            "QPushButton{color:white;background-color:#434343;border:2px solid white;border-radius:15px;}"
+                            'QPushButton:focus{color:white;background-color:#1473e6;border:1px;}'
+                            'QPushButton:hover{color:#656565;background-color:#cdcdcd;border:1px;}'
+                            'QLabel{color:white;}')
         self.setWindowModality(Qt.ApplicationModal)
         self.resize(640, 480)
+        self.setFixedSize(640, 480)
         self.setWindowTitle('Adjustment')
         self.setWindowIcon(QIcon('./UI/icon_32.png'))
         self.__img = img
@@ -70,11 +76,11 @@ class AdjDialog(QDialog):
         
         self.lb = QLabel('Values: 0',self)
         self.lb.setAlignment(Qt.AlignLeft)
-        self.lb.setGeometry(2*self.width()//3 + 10,120,100,30)
+        self.lb.setGeometry(3*self.width()//5 + 10,120,100,30)
         
         self.imgShow = QLabel('',self)
         self.imgShow.setAlignment(Qt.AlignCenter)
-        self.imgShow.setGeometry(10,80,400,400)
+        self.imgShow.setGeometry(30,100,350,350)
         '''
         self.__tmp_img = cv2.resize(self.__tmp_img,(400,
                                         self.img_h*400//self.img_w) if self.img_w >= self.img_h else (self.img_w*400//self.img_h,400))
@@ -83,9 +89,21 @@ class AdjDialog(QDialog):
         
         self.sl = QSlider(Qt.Horizontal,self)
         #self.sl.resize(30,100)
-        self.sl.setGeometry(2*self.width()//3 + 10,150,200,30)
-        self.sl.setMinimum(-100)
-        self.sl.setMaximum(100)
+        self.sl.setGeometry(3*self.width()//5 + 10,150,200,30)
+        if self.__target == 'light':
+            self.sl.setMinimum(-100)
+            self.sl.setMaximum(100)
+        elif self.__target == 'comp':
+            self.sl.setMinimum(-30)
+            self.sl.setMaximum(50)
+        elif self.__target == 'custom':
+            self.sl.setMinimum(-100)
+            self.sl.setMaximum(100)
+        elif self.__target == 'hue':
+            self.sl.setMinimum(-180)
+            self.sl.setMaximum(180)
+        else:
+            pass
         self.sl.setTickPosition(QSlider.TicksAbove) 
         
         self.sl.valueChanged[int].connect(self.setValue)

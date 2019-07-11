@@ -9,7 +9,7 @@ import sys
 import cv2
 import sip
 import logger
-from pencil import AdjBlock, Canvas
+from pencil import AdjBlock, Canvas, MutiCanvas
 import numpy as np
 from Basic import AdjDialog
 from Thread import ProThread
@@ -23,21 +23,49 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip,
                              QPushButton, QMessageBox, QDesktopWidget, 
                              QMainWindow, QAction, qApp, QMenu, 
                              QSlider, QLabel, QFileDialog, 
+                             QUndoStack, QUndoCommand,
                              QDialog, QGroupBox, QDialogButtonBox, 
                              QGridLayout, QSplitter, QDockWidget, 
                              QToolBar,QProgressDialog)
 from PyQt5.QtGui import QIcon, QFont
 
+class Edit(QUndoCommand):
 
-class Example(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.__list = []
+
+    def redo(self):
+        self.self.__list.append(0)
+        pass
+
+class MainWindow(QMainWindow):
     signal = pyqtSignal()
     def __init__(self):
         #super().__init__()
-        super(Example,self).__init__()
+        super(MainWindow,self).__init__()
+        self.setStyleSheet(''
+                            'QMainWindow{color:white;background-color:#424242;}'
+                            'QTabWidget::pane{color:white;border:3px solid #535353;padding:0px;}'
+                            'QTabBar::pane{color:white;background-color:#535353;border:1px solid #424242;}'
+                            'QTabBar::tab{color:white;background-color:#535353;border:1px solid #424242;border-bottom:0px;padding:0px;margin-top:1px;width:100px;height:25px;}'
+                            #'QWidget#CentralWidget{background-color:transparent;}'
+                            'QMenuBar{color:white;background-color:#535353;border-bottom:2px solid #424242;padding:5px;}'
+                            'QMenuBar::item:selected{color:white;background-color:#454545;}'
+                            'QMenu{color:black;background-color:#cdcdcd;border:1px solid #535353;}'
+                            'QMenu::item{background-color:transparent;padding:8px 42px;margin:0px 0px;border-bottom:1px solid #dbdbdb;}'
+                            'QMenu::item:selected{color:white;background-color:#0078d7;}'
+                            'QMenu::icon{left:4px;}'
+                            'QToolBar{color:white;background-color:#535353;border:2px solid #424242;}'
+                            'QToolBar::item{color:white;background-color:transparent;}'
+                            'QToolBar::separator{background-color:#535353;margin:3px;}'
+                            'QStatusBar{color:white;background-color:#535353;border:2px solid #424242;border-radius:3px;}')
         self.OS = OpStack()
         #self.setMouseTracking(False)
         self.pos_xy = []
         self.canvas = Canvas()
+        self.mcanvas = MutiCanvas()
+        self.mcanvas.addTab(self.canvas,'1')
         self.Thr = ProThread(self.canvas.layers)
         self.F = Hist()
         #self.F = MyFigure(width=3, height=2, dpi=100)
@@ -45,6 +73,8 @@ class Example(QMainWindow):
         self.initUI()
         
     def initUI(self):
+        
+        self.setWindowFlags(Qt.CustomizeWindowHint)
         self.statusbar = self.statusBar()
         self.statusbar.showMessage('Ready')
         QToolTip.setFont(QFont('SansSerif', 10))
@@ -54,7 +84,7 @@ class Example(QMainWindow):
         exitAct = QAction(QIcon('./UI/exit.svg'), '&Exit', self)        
         exitAct.setShortcut('Ctrl+Q')
         exitAct.setStatusTip('Exit application')
-        exitAct.triggered.connect(qApp.quit)
+        exitAct.triggered.connect(self.close)
         
         self.pencilAct = QAction(QIcon('./UI/pen.svg'),'pencil',self)
         self.pencilAct.setStatusTip('Pencil')
@@ -245,31 +275,53 @@ class Example(QMainWindow):
         newAct.triggered.connect(self.newBlock)
         
         self.toolBar = QToolBar()
+        self.toolBar.setContentsMargins(0,10,0,10)
         self.main_toolbar = QToolBar()
+        self.main_toolbar.setContentsMargins(5,0,5,0)
         self.addToolBar(Qt.TopToolBarArea,self.main_toolbar)
         self.addToolBar(Qt.LeftToolBarArea,self.toolBar)
+        self.main_toolbar.setFixedHeight(40)
+        '''
         self.main_toolbar.addAction(newAct)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(openFile)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(saveFile)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(undoAct)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(redoAct)
+        self.main_toolbar.addSeparator()
         self.main_toolbar.addAction(exitAct)
-        
+        '''
         self.toolBar.addAction(self.pencilAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.lineAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.rectAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.circleAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.fillAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.eraserAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.brushAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.cropAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.dropperAct)
+        self.toolBar.addSeparator()
         self.toolBar.addAction(self.stampAct)
+        self.toolBar.addSeparator()
         self.toolBar.setOrientation(Qt.Vertical)
         
         
         impMenu = QMenu('Import', self)
-        impAct = QAction('Import mail', self) 
+        impAct = QAction('Import image', self)
+        impAct.setShortcut('Ctrl+I')
+        impAct.setStatusTip('Import new Image')
+        impAct.triggered.connect(self.openimage)
         impMenu.addAction(impAct)
         
         LightAct = QAction('Light',self)
@@ -331,8 +383,26 @@ class Example(QMainWindow):
         viewStatAct.setChecked(True)
         viewStatAct.triggered.connect(self.toggleMenu)
         
+        infoViewAct = QAction('Information',self, checkable=True)
+        infoViewAct.setStatusTip('View information')
+        infoViewAct.setChecked(True)
+        infoViewAct.triggered.connect(self.infoView)
+        
+        channelViewAct = QAction('Channel',self, checkable=True)
+        channelViewAct.setStatusTip('View channel')
+        channelViewAct.setChecked(True)
+        channelViewAct.triggered.connect(self.channelView)
+        
+        histViewAct = QAction('Hist',self, checkable=True)
+        histViewAct.setStatusTip('View hist')
+        histViewAct.setChecked(True)
+        histViewAct.triggered.connect(self.histView)
+        
         viewMenu = menubar.addMenu('View')
         viewMenu.addAction(viewStatAct)
+        viewMenu.addAction(infoViewAct)
+        viewMenu.addAction(channelViewAct)
+        viewMenu.addAction(histViewAct)
         
         helpMenu = menubar.addMenu('Help')
         helpMenu.addAction(aboutAct)
@@ -352,51 +422,75 @@ class Example(QMainWindow):
         
         self.info_lb = QLabel('',self)
         self.info_lb.setAlignment(Qt.AlignLeft)
+        self.info_lb.setStyleSheet("color:white;background-color:#535353;padding:10px;border:1px solid #282828;")
         #self.setMouseTracking(True)
         #self.showFigure()
         #self.setLayout(self.main_vbox)
         #self.CreateDockWidget('Figure',self.F)
         #self.CreateDockWidget('Information',self.info_lb)
-        self.main_Fig = QDockWidget('Figure')  # 实例化dockwidget类
+        self.main_Fig = QDockWidget('Hist')  # 实例化dockwidget类
         self.main_Fig.setWidget(self.F)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        self.main_Fig.setObjectName("Figure")
-        self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable)    #  设置dockwidget的各类属性
+        #self.main_Fig.setObjectName("Figure")
+        self.main_Fig.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
+                                    'QDockWidget:title{color:#cdcdcd;background-color:#424242;border:1px solid #282828;}')
+        self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable|self.main_Fig.DockWidgetClosable)    #  设置dockwidget的各类属性
+        self.main_Fig.setWindowFlags(Qt.FramelessWindowHint)
         #self.main_Fig.setStyleSheet('QDockWidget{border: 1px solid black;}')
         self.addDockWidget(Qt.RightDockWidgetArea, self.main_Fig) 
-        main_info = QDockWidget('Information')  # 实例化dockwidget类
-        main_info.setWidget(self.info_lb)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        main_info.setObjectName("Info")
-        main_info.setFeatures(main_info.DockWidgetFloatable|main_info.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, main_info) 
+        self.main_info = QDockWidget('Information')  # 实例化dockwidget类
+        self.main_info.setWidget(self.info_lb)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
+        #self.main_info.setObjectName("Info")
+        self.main_info.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
+                            'QDockWidget:title{color:#cdcdcd;background-color:#424242;border:1px solid #282828;}')
+        self.main_info.setFeatures(self.main_info.DockWidgetFloatable|self.main_info.DockWidgetMovable|self.main_info.DockWidgetClosable)    #  设置dockwidget的各类属性
+        self.addDockWidget(Qt.RightDockWidgetArea, self.main_info) 
         self.layer = LayerMain(self.canvas.layers,self.refreshShow)
-        self.layer_dock = QDockWidget('Layer')
+        #self.layer.setStyleSheet('color:white;background-color:#adadad;border:1px solid #adadad;')
+        self.layer_dock = QDockWidget('Layer',self)
         self.layer_dock.setWidget(self.layer)
-        self.layer_dock.setObjectName("Info")
-        self.layer_dock.setFeatures(main_info.DockWidgetFloatable|main_info.DockWidgetMovable)
+        #self.layer.setStyleSheet('border:1px solid #adadad')
+        #self.layer_dock.setObjectName("Info")
+        self.layer_dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
+                            'QDockWidget:title{color:#cdcdcd;background-color:#535353;border:1px solid #282828;}')
+        self.layer_dock.setFeatures(self.layer_dock.DockWidgetFloatable|self.layer_dock.DockWidgetMovable|self.layer_dock.DockWidgetClosable)
         self.addDockWidget(Qt.RightDockWidgetArea, self.layer_dock)
+        self.channel_dock = QDockWidget('Channel',self)
+        self.channel_dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
+                            'QDockWidget:title{color:#cdcdcd;background-color:#535353;border:1px solid #282828;}')
+        self.channel_dock.setFeatures(self.channel_dock.DockWidgetFloatable|self.channel_dock.DockWidgetMovable|self.channel_dock.DockWidgetClosable)
+        tmp_widget = QWidget(self)
+        self.layer_dock.setTitleBarWidget(tmp_widget)
+        self.channel_dock.setTitleBarWidget(tmp_widget)
+        self.addDockWidget(Qt.RightDockWidgetArea,self.channel_dock)
+        self.tabifyDockWidget(self.channel_dock,self.layer_dock)
         logger.info('Application Start!')
         #splitter  =  QSplitter(self)
         #splitter.addWidget(self.label)
         #splitter.addWidget(self.F)
         #splitter.setOpaqueResize(False)
         #splitter.setOrientation(Qt.Vertical)
-        self.setCentralWidget(self.canvas)
+        self.setCentralWidget(self.mcanvas)
         self.setDockNestingEnabled(True)
         self.setMinimumSize(800,480)
         self.resize(1366, 768)
         self.center()
+        #self.tabifyDockWidget(self.main_Fig,main_info)
+        #self.layer_dock.setVisible(False)
         self.setWindowTitle('SmartSeed')
         self.setWindowIcon(QIcon('./UI/icon_32.png'))        
         self.showMaximized()
         self.canvas.signal.connect(self.refreshShow)
         self.show()
+        self.refreshShow()
         
     
     def CreateDockWidget(self, name, widget):  # 定义一个createDock方法创建一个dockwidget
         dock = QDockWidget(name)  # 实例化dockwidget类
         dock.setWidget(widget)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         dock.setObjectName("selectQuote")
-        dock.setFeatures(dock.DockWidgetFloatable|dock.DockWidgetMovable)    #  设置dockwidget的各类属性
+        dock.setFeatures(dock.DockWidgetFloatable|dock.DockWidgetMovable|dock.DockWidgetClosable)    #  设置dockwidget的各类属性
+        dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
+                            'QDockWidget:title{color:#cdcdcd;background-color:#535353;}')
         self.addDockWidget(Qt.RightDockWidgetArea, dock)  
     
     def center(self):
@@ -404,33 +498,20 @@ class Example(QMainWindow):
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
-    '''
-    def showFigure(self):
-        try:
-            self.removeDockWidget(self.main_Fig)
-            sip.delete(self.main_Fig)
-            sip.delete(self.F)
-        except:
-            logger.warning('Initial Figure!')
-        self.F = MyFigure(width=3, height=2, dpi=100)
-        self.main_Fig = QDockWidget('Figure')  # 实例化dockwidget类
-        self.main_Fig.setWidget(self.F)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        self.main_Fig.setObjectName("Figure")
-        self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, self.main_Fig) 
-        try:
-            self.F.DrawHistogram(self.canvas.Image)
-            logger.info("Draw Histogram!")
-        except:
-            logger.warning('None Image!')
-    '''
+    
     def closeEvent(self, event):
         reply = QMessageBox.question(self, 'Message',
-            "Are you sure to quit?", QMessageBox.Yes | 
-            QMessageBox.No, QMessageBox.No)
-
-        if reply == QMessageBox.Yes:
-            logger.info('Close Application!')
+            "Are you sure to quit?", QMessageBox.Save | 
+            QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+        if reply == QMessageBox.Save:
+            logger.info('Save files, and close application.')
+            flag = self.saveSlot()
+            if flag:
+                event.accept()
+            else:
+                event.ignore()
+        elif reply == QMessageBox.Discard:
+            logger.info("Don\'t save files, and close application.")
             event.accept()
         else:
             event.ignore()
@@ -441,6 +522,24 @@ class Example(QMainWindow):
             self.statusbar.show()
         else:
             self.statusbar.hide()
+    
+    def infoView(self, state):
+        if state:
+            self.main_info.show()
+        else:
+            self.main_info.hide()
+            
+    def histView(self, state):
+        if state:
+            self.main_Fig.show()
+        else:
+            self.main_Fig.hide()
+    
+    def channelView(self, state):
+        if state:
+            self.channel_dock.show()
+        else:
+            self.channel_dock.hide()
             
     def contextMenuEvent(self, event):
        cmenu = QMenu(self)
@@ -451,7 +550,8 @@ class Example(QMainWindow):
        action = cmenu.exec_(self.mapToGlobal(event.pos()))
        
        if action == quitAct:
-           qApp.quit()
+           #qApp.quit()
+           self.close()
        elif action == opnAct:
            self.openimage()
        elif action == newAct:
@@ -462,13 +562,7 @@ class Example(QMainWindow):
     def keyPressEvent(self, e):
         if e.key() == Qt.Key_Escape:
             self.close()
-    '''
-    def mouseMoveEvent(self, e):
-        x = e.x()
-        y = e.y()
-        text = "x: {0},  y: {1}".format(x, y)
-        self.label.setText(text)
-    '''
+    
     def newBlock(self):
         wel = Welcome()
         if wel.exec_() == QDialog.Accepted:
@@ -496,7 +590,8 @@ class Example(QMainWindow):
         if self.canvas.layers.Image.size == 1:
             return
         self.OS.push([np.array(self.canvas.layers.Image),'openimage'])
-        self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
+        #self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi)
+        #print('width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi))
         self.info_lb.setText(self.info)
         #self.F.DrawHistogram(self.canvas)
         self.refreshShow()
@@ -509,11 +604,12 @@ class Example(QMainWindow):
             self, 'Save Image', 'Untitled', '*.png *.jpg *.bmp', '*.png')
 
         if fileName is '':
-            return
+            return False
         if self.canvas.layers.Image.size == 1:
-            return
+            return False
         # 调用opencv写入图像
         cv2.imwrite(fileName, self.canvas.layers.Image)
+        return True
         
     def refreshShow(self):
         # 提取图像的尺寸和通道, 用于将opencv下的image转换成Qimage
@@ -522,7 +618,9 @@ class Example(QMainWindow):
         #self.qImg = QImage(self.canvas.data, width, height, bytesPerLine,
                            #QImage.Format_RGB888).rgbSwapped()
         # 将Qimage显示出来
-        self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
+        self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi)
+        #self.info = 'width: {0}\t height: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
+        #print('width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi))
         self.info_lb.setText(self.info)
         #self.showFigure()
         #self.label.setPixmap(ops.cvtCV2Pixmap(self.canvas.layers.Image))
@@ -618,26 +716,7 @@ class Example(QMainWindow):
             self.canvas.layers.changeImg(img.astype(np.uint8))
             logger.info('Redo Operating to ' + op + '!')
         self.refreshShow()
-    '''
-    def showevent(self,event):
-        self.chgSize()
     
-    def moveEvent(self,event):
-        self.chgSize()
-    
-    def resizeEvent(self,event):
-        self.chgSize()
-    
-    def chgSize(self):
-
-        self.label.lb_x = (self.label.width() - self.canvas.layers.width())//2
-        self.label.lb_y = (self.label.height() - self.canvas.layers.height())//2
-        self.label.lb_w = self.canvas.layers.width()
-        self.label.lb_h = self.canvas.layers.height()
-        #print(self.label.width(),self.label.height())
-        #print(self.label.geometry().x(),self.label.geometry().y())
-        #print(self.label.lb_x,self.label.lb_y,self.label.lb_w,self.label.lb_h)
-'''
     def disPre(self):
         if self.last_tool == 'Pencil':
             self.pencilAct.setEnabled(True)
@@ -660,20 +739,25 @@ class Example(QMainWindow):
         elif self.last_tool == 'Stamp':
             self.stampAct.setEnabled(True)
         else: return
+        '''
         self.removeDockWidget(self.tmp_dock)
-        sip.delete(self.tmp_dock)
+        sip.delete(self.tmp_dock)'''
+        self.main_toolbar.clear()
+        sip.delete(self.adj_b)
     
     def perOpTools(self,s):
         self.canvas.draw.chgType(s)
         self.disPre()
         self.canvas.chgCursor(s)
         self.adj_b = AdjBlock(self.canvas.draw)
+        '''
         self.tmp_dock = QDockWidget(s+' Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         self.tmp_dock.setObjectName("Attributes")
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
-        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)
-        if self.last_tool == '':self.canvas.draw.saveImg()
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)'''
+        self.main_toolbar.addWidget(self.adj_b)
+        #if self.last_tool == '':self.canvas.draw.saveImg()
         self.last_tool = s
         self.refreshShow()
         
@@ -681,6 +765,7 @@ class Example(QMainWindow):
     def showDialog(self,tar=10):
         num = self.canvas.layers.pixNum*tar
         self.progress = QProgressDialog(self)
+        self.progress.setStyleSheet('QProgressDialog{color:white;background-color:#535353;}')
         self.progress.setWindowTitle("请稍等")  
         self.progress.setLabelText("正在操作...")
         self.progress.setCancelButtonText("取消")
@@ -700,6 +785,8 @@ class Example(QMainWindow):
             else:
                 continue
         self.progress.setValue(num)
+        self.progress.close()
+        del self.progress
         #QMessageBox.information(self,"提示","操作成功")
     
     def Anime(self):
@@ -891,5 +978,5 @@ class Example(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = Example()
+    ex = MainWindow()
     sys.exit(app.exec_())

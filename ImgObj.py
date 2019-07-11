@@ -11,18 +11,23 @@ from PyQt5.QtCore import QSettings,pyqtSignal,QObject
 
 class ImgObject(object):
     def __init__(self,img,mask=None):
+        self.__realImage = img
         self.Image = img
         if mask == None:
             mask = np.zeros(self.Image.shape,dtype=np.uint8)
             mask = 255
         self.mask = mask
-        self.__width, self.__height = self.Image.shape[1],self.Image.shape[0]
+        self.__width, self.__height = self.__realImage.shape[1],self.__realImage.shape[0]
         self.__pixNum = self.__width * self.__height
+        self.__hasHiddenLayer = False
+        self.__posOnCanvas = (-1,-1)
 
     def changeImg(self,img):
         self.Image = img
-        self.__width = self.Image.shape[1]
-        self.__height = self.Image.shape[0]
+        self.__width = self.__realImage.shape[1]
+        self.__height = self.__realImage.shape[0]
+        if self.hasHiddenLayer():
+            self.selfUpdate()
     
     def ImgInfo(self):
         return self.__width,self.__height
@@ -32,14 +37,45 @@ class ImgObject(object):
     
     def height(self):
         return self.__height
+    
+    def getCenterOfImage(self):
+        return ((self.__width+1) //2,(self.__height+1) //2)
+    
+    def getPositionOnCanvas(self):
+        return self.__posOnCanvas
+    
+    def setPositionOnCanvas(self,pos):
+        self.__posOnCanvas = pos
+    
+    def hasHiddenLayer(self):
+        return self.__hasHiddenLayer
+    
+    def addHiddenLayer(self):
+        self.hiddenLayer = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
+        self.hiddenMask = np.zeros((self.__height,self.__width),dtype=np.uint8)
+    
+    def selfUpdate(self):
+        if self.hasHiddenLayer():
+            mask_inv = cv2.bitwise_not(self.hiddenMask)
+            fg = cv2.bitwise_and(self.hiddenLayer,self.hiddenLayer,mask = self.hiddenMask)
+            bg = cv2.bitwise_and(self.Image,self.Image,mask = mask_inv)
+            self.Image = cv2.add(bg,fg)
+            self.mask = cv2.bitwise_or(self.hiddenMask,self.mask)
 
 class LayerStack(QObject):
     signal = pyqtSignal()
+    #updateLayer_signal = pyqtSignal()
+    layNum_signal = pyqtSignal(int)
     def __init__(self,init=None):
         super().__init__()
         self.layer = []
         self.mix_list = []
-        if init == None:
+        if type(init) == type(np.array([[[0,0,0]]])):
+            self.flag = True
+            self.Image = init
+            self.__height, self.__width = self.Image.shape[0],self.Image.shape[1]
+        else:
+            self.flag = False
             settings = QSettings("tmp.ini", QSettings.IniFormat)
             try:
                 self.__width = eval(settings.value("width"))
@@ -50,16 +86,15 @@ class LayerStack(QObject):
             self.color = settings.value("color")
             self.Image = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
             self.color_num = self.__str_to_hex(self.color[1:])
-            self.pixNum = self.__width * self.__height
             self.Image[:,:,0] = self.color_num[2]
             self.Image[:,:,1] = self.color_num[1]
             self.Image[:,:,2] = self.color_num[0]
-        else:
-            self.Image = init
+        self.pixNum = self.__width * self.__height
         tmp_layer = ImgObject(self.Image)
         self.layer.insert(0,tmp_layer)
         self.mix_list.insert(0,'Normal')
         self.__remix()
+        self.selectedLayerIndex = 0
     
     def __str_to_hex(self,s):
         s = [int(c.upper(),16) for c in s]
@@ -71,10 +106,12 @@ class LayerStack(QObject):
     def __getVisibleArea(self,img):
         tmp = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
         mask = np.zeros((self.__height,self.__width),dtype=np.uint8)
-        
-        tmp[:,:,0] = self.color_num[2]
-        tmp[:,:,1] = self.color_num[1]
-        tmp[:,:,2] = self.color_num[0]
+        if self.flag:
+            tmp = self.Image
+        else:
+            tmp[:,:,0] = self.color_num[2]
+            tmp[:,:,1] = self.color_num[1]
+            tmp[:,:,2] = self.color_num[0]
         
         cen_x,cen_y = (self.__width+1)//2,(self.__height+1)//2
         img_w,img_h = img.shape[1],img.shape[0]
@@ -109,6 +146,10 @@ class LayerStack(QObject):
         self.__remix()
         pass
     
+    def newHiddenLayer(self):
+        img = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
+        mask = np.zeros((self.__height,self.__width),dtype=np.uint8)
+    
     def delLayer(self,idx):
         self.layer.pop(idx)
         self.mix_list.pop(idx)
@@ -116,12 +157,24 @@ class LayerStack(QObject):
         pass
     
     def exchgLayer(self,fore,sup):
+        print(len(self.layer),fore,sup)
+        item = self.layer.pop(fore)
+        mix = self.mix_list.pop(fore)
+        self.layer.insert(sup,item)
+        self.mix_list.insert(sup,mix)
+        self.__remix()
         self.signal.emit()
         pass
     
     def sltLayer(self,idx):
         self.tmp_img = self.layer[idx].Image
-        pass
+        self.selectedLayerIndex = idx
+        self.layNum_signal.emit(idx)
+        return idx
+    
+    def updateLayerImage(self,idx,image):
+        self.tmp_img = self.layer[idx].Image = image
+        self.updateImg()
     
     def cpyLayer(self,idx):
         self.addLayer(idx,self.Image)
@@ -156,7 +209,7 @@ class LayerStack(QObject):
             #return Mixed.Overlay(self.Image,self.__getVisibleArea(img.Image))
         elif self.mix_list[idx] == 'Screen':
             _img, mask = self.__getVisibleArea(img.Image)
-            _img = Mixed.Screen(self.Image,)
+            _img = Mixed.Screen(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Multiply':
             _img, mask = self.__getVisibleArea(img.Image)
@@ -236,6 +289,10 @@ class LayerStack(QObject):
         cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
         for i in range(1,len(self.layer)):
             self.Image = self.__mix(self.layer[i],i)
+        self.signal.emit()
+    
+    def updateImg(self):
+        self.__remix()
         self.signal.emit()
     
     def changeImg(self,img):

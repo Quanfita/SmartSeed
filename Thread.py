@@ -73,70 +73,70 @@ class ProThread(QThread):
     def doFilter(self):
         ori = cv2.imread('./tables/lookup-table.png')
         new = cv2.imread('./tables/'+self.content)
-        self.img.changeImg(Filter().myFilter(ori,new,self.img.Image))
+        self.img.updateLayerImage(self.img.selectedLayerIndex,Filter().myFilter(ori,new,self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def AWB(self):
-        self.img.changeImg(AWB(self.img.Image))
+        self.img.updateLayerImage(AWB(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def ACE(self):
-        self.img.changeImg(ACE().zmIceColor(self.img.Image))
+        self.img.updateLayerImage(ACE().zmIceColor(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def ACA(self):
-        self.img.changeImg(ACA(self.img.Image))
+        self.img.updateLayerImage(ACA(self.img.layer[self.img.selectedLayerIndex].Image))
     
     def Anime(self):
-        sky = cv2.imread(self.content)
-        self.img.changeImg(Sit2Anime().DoProcess(self.img.Image,sky,'./tables'))
+        #sky = cv2.imread(self.content)
+        self.img.updateLayerImage(Sit2Anime('./tables').DoProcess(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def Paint(self):
-        #self.img.changeImg(Painter(self.img.Image))
+        #self.img.updateLayerImage(Painter(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def Ink(self):
-        self.img.changeImg(Ink().ink(self.img.Image))
+        self.img.updateLayerImage(Ink().ink(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def Pencil(self):
         pencil = cv2.imread('./tables/pencil.jpg')
-        self.img.changeImg(Pencil.pencil_drawing(self.img.Image,pencil))
+        self.img.updateLayerImage(Pencil.pencil_drawing(self.img.layer[self.img.selectedLayerIndex].Image,pencil))
         return
     
     def USM(self):
-        self.img.changeImg(Sharp.USM(self.img.Image))
+        self.img.updateLayerImage(Sharp.USM(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def EdgeSharp(self):
-        self.img.changeImg(Sharp.EdgeSharp(self.img.Image))
+        self.img.updateLayerImage(Sharp.EdgeSharp(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def SmartSharp(self):
-        self.img.changeImg(Sharp.SmartSharp(self.img.Image))
+        self.img.updateLayerImage(Sharp.SmartSharp(self.img.layer[self.img.selectedLayerIndex].Image))
         return
     
     def blur(self,ksize=5):
-        self.img.changeImg(Blur.Blur(self.img.Image,ksize))
+        self.img.updateLayerImage(Blur.Blur(self.img.layer[self.img.selectedLayerIndex].Image,ksize))
         return
     
     def GaussianBlur(self,ksize=5,sigma=15):
-        self.img.changeImg(Blur.GaussianBlur(self.img.Image,ksize,sigma))
+        self.img.updateLayerImage(Blur.GaussianBlur(self.img.layer[self.img.selectedLayerIndex].Image,ksize,sigma))
         return
     
     def MotionBlur(self,length=20,angle=40):
-        self.img.changeImg(Blur.MotionBlur(self.img.Image,length,angle))
+        self.img.updateLayerImage(Blur.MotionBlur(self.img.layer[self.img.selectedLayerIndex].Image,length,angle))
         return
     
     def BlurMore(self,ksize=5):
-        self.img.changeImg(Blur.BlurMore(self.img.Image,ksize))
+        self.img.updateLayerImage(Blur.BlurMore(self.img.layer[self.img.selectedLayerIndex].Image,ksize))
         return
     
     def RadialBlur(self,num=20):
-        self.img.changeImg(Blur.RadialBlur(self.img.Image,num))
+        self.img.updateLayerImage(Blur.RadialBlur(self.img.layer[self.img.selectedLayerIndex].Image,num))
         return
     
     def SmartBlur(self,color=100,space=5):
-        self.img.changeImg(Blur.SmartBlur(self.img.Image,color,space))
+        self.img.updateLayerImage(Blur.SmartBlur(self.img.layer[self.img.selectedLayerIndex].Image,color,space))
         return

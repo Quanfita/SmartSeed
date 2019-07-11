@@ -7,14 +7,14 @@ Created on Tue Jan 29 17:42:25 2019
 
 from PyQt5.QtWidgets import QApplication,QDialog
 import sys
-from app import Example
+from app import MainWindow
 from Welcome import Welcome
 
 def main():
     app = QApplication(sys.argv)
     wel = Welcome()
     if wel.exec_() == QDialog.Accepted:
-        Example()
+        MainWindow()
         sys.exit(app.exec_())
 
 if __name__ == '__main__':
