@@ -8,6 +8,7 @@ Created on Sun Jan 27 08:37:48 2019
 from PyQt5.QtGui import QImage,QPixmap
 import numpy as np
 import cv2
+from PIL import Image
 
 def cvtPixmap2Image(pixmap):
     return pixmap.toImage()
@@ -40,3 +41,44 @@ def cvtCV2Pixmap(cvimg):
 def cvtPixmap2CV(pixmap):
     tmp = pixmap.toImage()
     return cvtImage2CV(tmp)
+
+def cvtCV2PIL(cvimg):
+    tmp = Image.fromarray(cv2.cvtColor(cvimg,cv2.COLOR_BGR2RGB)) 
+    return tmp
+
+def cvtPixmap2PIL(pixmap):
+    tmp = cvtCV2PIL(cvtPixmap2CV(pixmap))
+    return tmp
+
+def cvtImage2PIL(qimage):
+    tmp = cvtCV2PIL(cvtImage2CV(qimage))
+    return tmp
+
+def cvtPIL2CV(pilimg):
+    tmp = cv2.cvtColor(np.asarray(pilimg),cv2.COLOR_RGB2BGR)
+    return tmp
+
+def cvtPIL2Pixmap(pilimg):
+    tmp = cvtCV2Pixmap(cvtPIL2CV(pilimg))
+    return tmp
+
+def cvtPIL2Image(pilimg):
+    tmp = cvtCV2Image(cvtPIL2CV(pilimg))
+    return tmp
+
+def saveImgWithPIL(image,name,dpi=72.0,quanlity=90):
+    tmp = cvtCV2PIL(image)
+    tmp.save(name,dpi=(dpi,dpi),quanlity=quanlity)
+
+def zeroPositionCheck(imgPosition,imgCenter,canCenter):
+    distanceX, distanceY = imgCenter[0] - canCenter[0] + imgPosition[0], imgCenter[1] - canCenter[1] + imgPosition[1]
+    return (distanceX,distanceY)
+
+def cvtCanPosAndLayerPos(pix,imgPosition,imgCenter,canCenter):
+    (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
+    return (pix[0] + disX, pix[1] + disY)
+'''
+def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):
+    (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
+    return (pix[0] + disX, pix[1] + disY)
+    '''
