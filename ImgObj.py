@@ -6,13 +6,18 @@ Created on Sun Jan 27 10:39:53 2019
 """
 import numpy as np
 import cv2
+import ops
+import logger
 import Op.Mixed as Mixed
 from PyQt5.QtCore import QSettings,pyqtSignal,QObject
 
 class ImgObject(object):
-    def __init__(self,img,mask=None):
+    def __init__(self,img,mask=None,debug=False):
+        self.__debug = debug
         self.__realImage = img
+        self.__layerName = ''
         self.Image = img
+        self.icon = ops.cvtCV2Pixmap(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200]))
         if mask == None:
             mask = np.zeros(self.Image.shape,dtype=np.uint8)
             mask = 255
@@ -21,13 +26,30 @@ class ImgObject(object):
         self.__pixNum = self.__width * self.__height
         self.__hasHiddenLayer = False
         self.__posOnCanvas = (-1,-1)
-
+        
+    def getLayerName(self):
+        return self.__layerName
+    
+    def setLayerName(self,name):
+        self.__layerName = name
+        if self.__debug:
+            logger.debug('Set layer name:'+self.__layerName)
+    
+    def getIcon(self):
+        return self.icon
+    
+    def getImage(self):
+        return self.Image
+    
     def changeImg(self,img):
         self.Image = img
+        self.icon = ops.cvtCV2Pixmap(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200]))
         self.__width = self.__realImage.shape[1]
         self.__height = self.__realImage.shape[0]
         if self.hasHiddenLayer():
             self.selfUpdate()
+        if self.__debug:
+            logger.debug('Changed image, shape:'+str((self.__height,self.__width)))
     
     def ImgInfo(self):
         return self.__width,self.__height
@@ -39,13 +61,25 @@ class ImgObject(object):
         return self.__height
     
     def getCenterOfImage(self):
+        if self.__debug:
+            logger.debug('The center of image:'+str(((self.__width+1) //2,(self.__height+1) //2)))
         return ((self.__width+1) //2,(self.__height+1) //2)
     
     def getPositionOnCanvas(self):
+        if self.__debug:
+            logger.debug('The position on canvas:'+str(self.__posOnCanvas))
         return self.__posOnCanvas
     
     def setPositionOnCanvas(self,pos):
+        if self.__debug:
+            logger.debug('Set position on canvas:'+str(pos))
         self.__posOnCanvas = pos
+        
+    def isPosOutOfLayer(self,pos):
+        if 0 < pos[0] < self.__width and 0 < pos[1] < self.__height:
+            return False
+        else:
+            return True
     
     def hasHiddenLayer(self):
         return self.__hasHiddenLayer
@@ -66,11 +100,15 @@ class LayerStack(QObject):
     signal = pyqtSignal()
     #updateLayer_signal = pyqtSignal()
     layNum_signal = pyqtSignal(int)
-    def __init__(self,init=None):
+    def __init__(self,init=None,debug=False):
         super().__init__()
+        self.__debug = debug
+        self.name = 'layer-1'
+        self.selectedLayerIndex = 0
         self.layer = []
+        self.layer_names = []
         self.mix_list = []
-        if type(init) == type(np.array([[[0,0,0]]])):
+        if init is not None:
             self.flag = True
             self.Image = init
             self.__height, self.__width = self.Image.shape[0],self.Image.shape[1]
@@ -91,6 +129,8 @@ class LayerStack(QObject):
             self.Image[:,:,2] = self.color_num[0]
         self.pixNum = self.__width * self.__height
         tmp_layer = ImgObject(self.Image)
+        tmp_layer.setLayerName(self.name)
+        self.layer_names.append(self.name)
         self.layer.insert(0,tmp_layer)
         self.mix_list.insert(0,'Normal')
         self.__remix()
@@ -101,6 +141,8 @@ class LayerStack(QObject):
         l = []
         for i in range(0,len(s),2):
             l.append(s[i]*16+s[i+1])
+        if self.__debug:
+            logger.debug('From '+str(s)+' to '+str(l))
         return l
     
     def __getVisibleArea(self,img):
@@ -121,10 +163,18 @@ class LayerStack(QObject):
         point_iy = -min(cen_y - (img_h+1) // 2,0)
         tmp[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
         mask[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
+        if self.__debug:
+            logger.debug('Visible area:'+str((point_sx,point_sy,min(img_w,self.__width),min(img_h,self.__height))))
         return tmp,mask
     
-    def addLayer(self,idx,img=None):
-        if type(img) != type(np.zeros((1,1,3))):
+    def setName(self,name):
+        self.name = name
+        
+    def getName(self):
+        return self.name
+    
+    def addLayer(self,idx,name,img=None):
+        if img is None:
             img = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
             img[:,:,0] = self.color_num[2]
             img[:,:,1] = self.color_num[1]
@@ -141,6 +191,8 @@ class LayerStack(QObject):
         tmp[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
         '''
         tmp_layer = ImgObject(img)
+        tmp_layer.setLayerName(name)
+        self.layer_names.append(name)
         self.layer.insert(idx,tmp_layer)
         self.mix_list.insert(idx,'Normal')
         self.__remix()
@@ -152,38 +204,80 @@ class LayerStack(QObject):
     
     def delLayer(self,idx):
         self.layer.pop(idx)
+        self.layer_names.pop(idx)
         self.mix_list.pop(idx)
         self.__remix()
         pass
     
     def exchgLayer(self,fore,sup):
-        print(len(self.layer),fore,sup)
+        if self.__debug:
+            logger.debug('There are '+str(len(self.layer))+' layers, move from '+str(fore)+' to '+str(sup))
         item = self.layer.pop(fore)
         mix = self.mix_list.pop(fore)
+        name = self.layer_names.pop(fore)
         self.layer.insert(sup,item)
         self.mix_list.insert(sup,mix)
+        self.layer_names.insert(sup,name)
         self.__remix()
         self.signal.emit()
         pass
     
+    def currentLayer(self):
+        return self.tmp_img
+    
+    def updateCurrentLayerImage(self,image):
+        self.tmp_img = self.layer[self.selectedLayerIndex].Image = image
+        self.updateImg()
+    
     def sltLayer(self,idx):
+        if self.__debug:
+            logger.debug('Current selected layer index:'+str(idx))
         self.tmp_img = self.layer[idx].Image
         self.selectedLayerIndex = idx
         self.layNum_signal.emit(idx)
         return idx
     
+    def getSelectedLayerIndex(self):
+        return self.selectedLayerIndex
+    
+    def currentIndex(self):
+        return self.selectedLayerIndex
+    
     def updateLayerImage(self,idx,image):
         self.tmp_img = self.layer[idx].Image = image
         self.updateImg()
     
-    def cpyLayer(self,idx):
-        self.addLayer(idx,self.Image)
+    def cpyLayer(self,idx,name):
+        if self.__debug:
+            logger.debug('Copy '+str(idx)+' layer.')
+        self.addLayer(idx,name,self.Image)
         pass
+    
+    def isPositionOutOfLayer(self,pos):
+        if self.__debug:
+            logger.debug('This position is '+
+                         str('' if self.layer[self.selectedLayerIndex].isPosOutOfLayer(pos) else 'not')+
+                         'out of layer.')
+        return self.layer[self.selectedLayerIndex].isPosOutOfLayer(pos)
+    
+    def getIndexOfClickPosition(self,pos):
+        for i in range(len(self.layer)-1,0,-1):
+            if not self.isPositionOutOfLayer(i,pos):
+                if self.__debug:
+                    logger.debug('Click layer index is '+str(i)+'.')
+                return i
+            else:
+                continue
+        if self.__debug:
+            logger.debug('Click layer is background.')
+        return 0
     
     def getNum(self):
         return len(self.layer)
     
     def setMix(self,idx,mix):
+        if self.__debug:
+            logger.debug('Set '+str(idx)+' layer mixed mode is ' + mix +'.')
         self.mix_list[idx] = mix
         self.__remix()
         pass
@@ -286,7 +380,7 @@ class LayerStack(QObject):
     
     def __remix(self):
         self.Image,mask = self.__getVisibleArea(self.layer[0].Image)
-        cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
+        #cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
         for i in range(1,len(self.layer)):
             self.Image = self.__mix(self.layer[i],i)
         self.signal.emit()
@@ -311,6 +405,8 @@ class LayerStack(QObject):
         return self.__height
     
     def reset(self,width,height):
+        if self.__debug:
+            logger.debug('Set image size:'+str((width,height)))
         r_w = width / self.__width
         r_h = height / self.__height
         for i in range(len(self.layer)):
@@ -321,6 +417,8 @@ class LayerStack(QObject):
         self.__remix()
     
     def resize(self,width,height):
+        if self.__debug:
+            logger.debug('Set canvas size:'+str((width,height)))
         self.__width = width
         self.__height = height
         self.__remix()

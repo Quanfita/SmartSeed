@@ -9,16 +9,11 @@ import sys
 import cv2
 import sip
 import logger
-from pencil import AdjBlock, Canvas, MutiCanvas
+from PIL import Image
+from views import AdjBlock, Canvas, MutiCanvas, FrontBackColor, LayerMain, Welcome, Hist, AdjDialog
 import numpy as np
-from Basic import AdjDialog
-from Thread import ProThread
 from Stack import OpStack
-from LayerView import LayerMain
-from Welcome import Welcome
-from Hist import Hist
-import time
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, 
                              QPushButton, QMessageBox, QDesktopWidget, 
                              QMainWindow, QAction, qApp, QMenu, 
@@ -27,11 +22,11 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip,
                              QDialog, QGroupBox, QDialogButtonBox, 
                              QGridLayout, QSplitter, QDockWidget, 
                              QToolBar,QProgressDialog)
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QFont, QColor
 
 class Edit(QUndoCommand):
 
-    def __init__(self):
+    def __init__(self,debug=False):
         super().__init__()
         self.__list = []
 
@@ -40,10 +35,11 @@ class Edit(QUndoCommand):
         pass
 
 class MainWindow(QMainWindow):
-    signal = pyqtSignal()
-    def __init__(self):
+    send_signal = pyqtSignal(dict)
+    def __init__(self,debug=False):
         #super().__init__()
         super(MainWindow,self).__init__()
+        self.__debug = debug
         self.setStyleSheet(''
                             'QMainWindow{color:white;background-color:#424242;}'
                             'QTabWidget::pane{color:white;border:3px solid #535353;padding:0px;}'
@@ -63,69 +59,47 @@ class MainWindow(QMainWindow):
         self.OS = OpStack()
         #self.setMouseTracking(False)
         self.pos_xy = []
-        self.canvas = Canvas()
-        self.mcanvas = MutiCanvas()
-        self.mcanvas.addTab(self.canvas,'1')
-        self.Thr = ProThread(self.canvas.layers)
+        #self.mcanvas.canvas = Canvas()
+        self.mcanvas = MutiCanvas(debug=self.__debug)
+        #self.mcanvas.refresh.connect(self.refreshShow)
+        #self.mcanvas.added.connect(self.middleware)
+        #self.mcanvas.addTab(self.mcanvas.canvas,'1')
+        #self.Thr = ProThread(self.mcanvas.canvas.layers)
         self.F = Hist()
         #self.F = MyFigure(width=3, height=2, dpi=100)
         self.last_tool = ''
+        self.frontcolor = QColor('white')
+        self.backcolor = QColor('black')
         self.initUI()
         
     def initUI(self):
-        
-        self.setWindowFlags(Qt.CustomizeWindowHint)
+        #self.setWindowFlags(Qt.CustomizeWindowHint)
+        self.initMenu()
+        self.initToolBar()
+        self.initDockWidget()
+
         self.statusbar = self.statusBar()
         self.statusbar.showMessage('Ready')
         QToolTip.setFont(QFont('SansSerif', 10))
-        
-        #self.setToolTip('This is a <b>QWidget</b> widget')
+        self.setCentralWidget(self.mcanvas)
+        self.setDockNestingEnabled(True)
+        self.setMinimumSize(800,480)
+        self.resize(1366, 768)
+        self.center()
 
+        self.setWindowTitle('SmartSeed')
+        self.setWindowIcon(QIcon('./UI/icon_32.png'))        
+        self.showMaximized()
+        self.show()
+        logger.info('Init complited!')
+        self.refreshShow()
+    
+    def initMenu(self):
         exitAct = QAction(QIcon('./UI/exit.svg'), '&Exit', self)        
         exitAct.setShortcut('Ctrl+Q')
         exitAct.setStatusTip('Exit application')
         exitAct.triggered.connect(self.close)
-        
-        self.pencilAct = QAction(QIcon('./UI/pen.svg'),'pencil',self)
-        self.pencilAct.setStatusTip('Pencil')
-        self.pencilAct.triggered.connect(self.pencil)
-        
-        self.lineAct = QAction(QIcon('./UI/line.svg'),'line',self)
-        self.lineAct.setStatusTip('Line')
-        self.lineAct.triggered.connect(self.line)
-        
-        self.rectAct = QAction(QIcon('./UI/square.svg'),'rect',self)
-        self.rectAct.setStatusTip('Rect')
-        self.rectAct.triggered.connect(self.rect)
-        
-        self.circleAct = QAction(QIcon('./UI/circle.svg'),'circle',self)
-        self.circleAct.setStatusTip('Circle')
-        self.circleAct.triggered.connect(self.circle)
-        
-        self.cropAct = QAction(QIcon('./UI/crop.svg'),'crop',self)
-        self.cropAct.setStatusTip('Crop')
-        self.cropAct.triggered.connect(self.crop)
-        
-        self.brushAct = QAction(QIcon('./UI/paint-brush.svg'),'brush',self)
-        self.brushAct.setStatusTip('Brush')
-        self.brushAct.triggered.connect(self.brush)
-        
-        self.eraserAct = QAction(QIcon('./UI/eraser.svg'),'eraser',self)
-        self.eraserAct.setStatusTip('Eraser')
-        self.eraserAct.triggered.connect(self.eraser)
-        
-        self.dropperAct = QAction(QIcon('./UI/dropper.svg'),'dropper',self)
-        self.dropperAct.setStatusTip('Dropper')
-        self.dropperAct.triggered.connect(self.dropper)
-        
-        self.fillAct = QAction(QIcon('./UI/fill-drip.svg'),'fill',self)
-        self.fillAct.setStatusTip('Fill-Drip')
-        self.fillAct.triggered.connect(self.fill)
-        
-        self.stampAct = QAction(QIcon('./UI/stamp.svg'),'stamp',self)
-        self.stampAct.setStatusTip('Stamp')
-        self.stampAct.triggered.connect(self.stamp)
-        
+                
         openFile = QAction(QIcon('./UI/open.svg'),'Open', self)
         openFile.setShortcut('Ctrl+O')
         openFile.setStatusTip('Open new Image')
@@ -273,57 +247,7 @@ class MainWindow(QMainWindow):
         newAct.setShortcut('Ctrl+N')
         newAct.setStatusTip('Create A Write Block')
         newAct.triggered.connect(self.newBlock)
-        
-        self.toolBar = QToolBar()
-        self.toolBar.setContentsMargins(0,10,0,10)
-        self.main_toolbar = QToolBar()
-        self.main_toolbar.setContentsMargins(5,0,5,0)
-        self.addToolBar(Qt.TopToolBarArea,self.main_toolbar)
-        self.addToolBar(Qt.LeftToolBarArea,self.toolBar)
-        self.main_toolbar.setFixedHeight(40)
-        '''
-        self.main_toolbar.addAction(newAct)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(openFile)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(saveFile)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(undoAct)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(redoAct)
-        self.main_toolbar.addSeparator()
-        self.main_toolbar.addAction(exitAct)
-        '''
-        self.toolBar.addAction(self.pencilAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.lineAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.rectAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.circleAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.fillAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.eraserAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.brushAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.cropAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.dropperAct)
-        self.toolBar.addSeparator()
-        self.toolBar.addAction(self.stampAct)
-        self.toolBar.addSeparator()
-        self.toolBar.setOrientation(Qt.Vertical)
-        
-        
-        impMenu = QMenu('Import', self)
-        impAct = QAction('Import image', self)
-        impAct.setShortcut('Ctrl+I')
-        impAct.setStatusTip('Import new Image')
-        impAct.triggered.connect(self.openimage)
-        impMenu.addAction(impAct)
-        
+                
         LightAct = QAction('Light',self)
         LightAct.triggered.connect(self.light)
         compAct = QAction('Comp',self)
@@ -339,7 +263,12 @@ class MainWindow(QMainWindow):
         adjustMenu.addAction(customAct)
         adjustMenu.addAction(hueAct)
         
-        aboutAct = QAction(QIcon('./UI/info.svg'),'About',self)
+        impMenu = QMenu('Import', self)
+        impAct = QAction('Import image', self)
+        impAct.setShortcut('Ctrl+I')
+        impAct.setStatusTip('Import new Image')
+        impAct.triggered.connect(self.importimage)
+        impMenu.addAction(impAct)
         
         menubar = self.menuBar()
         fileMenu = menubar.addMenu('&File')
@@ -397,6 +326,8 @@ class MainWindow(QMainWindow):
         histViewAct.setStatusTip('View hist')
         histViewAct.setChecked(True)
         histViewAct.triggered.connect(self.histView)
+                                      
+        aboutAct = QAction(QIcon('./UI/info.svg'),'About',self)
         
         viewMenu = menubar.addMenu('View')
         viewMenu.addAction(viewStatAct)
@@ -406,28 +337,105 @@ class MainWindow(QMainWindow):
         
         helpMenu = menubar.addMenu('Help')
         helpMenu.addAction(aboutAct)
+    
+    def initToolBar(self):
+        self.toolBar = QToolBar()
+        self.toolBar.setContentsMargins(0,10,0,10)
+        self.main_toolbar = QToolBar()
+        self.main_toolbar.setContentsMargins(5,0,5,0)
+        self.addToolBar(Qt.TopToolBarArea,self.main_toolbar)
+        self.addToolBar(Qt.LeftToolBarArea,self.toolBar)
+        self.main_toolbar.setFixedHeight(40)
         
+        self.pencilAct = QAction(QIcon('./UI/pen.svg'),'pencil',self)
+        self.pencilAct.setStatusTip('Pencil')
+        self.pencilAct.triggered.connect(self.pencil)
+        
+        self.lineAct = QAction(QIcon('./UI/line.svg'),'line',self)
+        self.lineAct.setStatusTip('Line')
+        self.lineAct.triggered.connect(self.line)
+        
+        self.rectAct = QAction(QIcon('./UI/square.svg'),'rect',self)
+        self.rectAct.setStatusTip('Rect')
+        self.rectAct.triggered.connect(self.rect)
+        
+        self.circleAct = QAction(QIcon('./UI/circle.svg'),'circle',self)
+        self.circleAct.setStatusTip('Circle')
+        self.circleAct.triggered.connect(self.circle)
+        
+        self.cropAct = QAction(QIcon('./UI/crop.svg'),'crop',self)
+        self.cropAct.setStatusTip('Crop')
+        self.cropAct.triggered.connect(self.crop)
+        
+        self.brushAct = QAction(QIcon('./UI/paint-brush.svg'),'brush',self)
+        self.brushAct.setStatusTip('Brush')
+        self.brushAct.triggered.connect(self.brush)
+        
+        self.eraserAct = QAction(QIcon('./UI/eraser.svg'),'eraser',self)
+        self.eraserAct.setStatusTip('Eraser')
+        self.eraserAct.triggered.connect(self.eraser)
+        
+        self.dropperAct = QAction(QIcon('./UI/dropper.svg'),'dropper',self)
+        self.dropperAct.setStatusTip('Dropper')
+        self.dropperAct.triggered.connect(self.dropper)
+        
+        self.fillAct = QAction(QIcon('./UI/fill-drip.svg'),'fill',self)
+        self.fillAct.setStatusTip('Fill-Drip')
+        self.fillAct.triggered.connect(self.fill)
+        
+        self.stampAct = QAction(QIcon('./UI/stamp.svg'),'stamp',self)
+        self.stampAct.setStatusTip('Stamp')
+        self.stampAct.triggered.connect(self.stamp)
+        
+        self.moveAct = QAction(QIcon('./UI/hand-paper.svg'),'move',self)
+        self.moveAct.setStatusTip('Move')
+        self.moveAct.triggered.connect(self.movement)
+        
+        self.colorWidget = FrontBackColor()
+        self.colorWidget.front_signal[str].connect(self.setFrontColor)
+        self.colorWidget.back_signal[str].connect(self.setBackColor)
+        
+        self.varyAct = QAction(QIcon('./UI/arrows.svg'),'vary',self)
+        self.varyAct.setStatusTip('Vary')
+        self.varyAct.triggered.connect(self.vary)
+        
+        self.toolBar.addAction(self.varyAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.pencilAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.lineAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.rectAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.circleAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.fillAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.eraserAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.brushAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.cropAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.dropperAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.stampAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.moveAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addWidget(self.colorWidget)
+        self.toolBar.setOrientation(Qt.Vertical)
+        
+    def initDockWidget(self):
         x = 0
         y = 0
         
         self.text = "x: {0},  y: {1}".format(x, y)
-        #self._size = QSize(480,360)
-        #self.canvas = QPixmap(self._size)
-        #self.label = Draw(self.OS,self.canvas,self.refreshShow)
-        #self.label.setAlignment(Qt.AlignCenter)
-        #self.main_vbox.addWidget(menubar)
-        #self.main_vbox.addWidget(self.toolbar)
-        #self.main_vbox.addWidget(self.label)
-        
-        
+                
         self.info_lb = QLabel('',self)
         self.info_lb.setAlignment(Qt.AlignLeft)
         self.info_lb.setStyleSheet("color:white;background-color:#535353;padding:10px;border:1px solid #282828;")
-        #self.setMouseTracking(True)
-        #self.showFigure()
-        #self.setLayout(self.main_vbox)
-        #self.CreateDockWidget('Figure',self.F)
-        #self.CreateDockWidget('Information',self.info_lb)
+        
         self.main_Fig = QDockWidget('Hist')  # 实例化dockwidget类
         self.main_Fig.setWidget(self.F)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
         #self.main_Fig.setObjectName("Figure")
@@ -444,7 +452,9 @@ class MainWindow(QMainWindow):
                             'QDockWidget:title{color:#cdcdcd;background-color:#424242;border:1px solid #282828;}')
         self.main_info.setFeatures(self.main_info.DockWidgetFloatable|self.main_info.DockWidgetMovable|self.main_info.DockWidgetClosable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.main_info) 
-        self.layer = LayerMain(self.canvas.layers,self.refreshShow)
+        self.layer = LayerMain(self.mcanvas,debug=self.__debug)
+        #self.layer.refresh.connect(self.refreshShow)
+        #self.mcanvas.changed[int].connect(self.layer.setCurrentLayerStack)
         #self.layer.setStyleSheet('color:white;background-color:#adadad;border:1px solid #adadad;')
         self.layer_dock = QDockWidget('Layer',self)
         self.layer_dock.setWidget(self.layer)
@@ -462,27 +472,11 @@ class MainWindow(QMainWindow):
         self.layer_dock.setTitleBarWidget(tmp_widget)
         self.channel_dock.setTitleBarWidget(tmp_widget)
         self.addDockWidget(Qt.RightDockWidgetArea,self.channel_dock)
-        self.tabifyDockWidget(self.channel_dock,self.layer_dock)
-        logger.info('Application Start!')
-        #splitter  =  QSplitter(self)
-        #splitter.addWidget(self.label)
-        #splitter.addWidget(self.F)
-        #splitter.setOpaqueResize(False)
-        #splitter.setOrientation(Qt.Vertical)
-        self.setCentralWidget(self.mcanvas)
-        self.setDockNestingEnabled(True)
-        self.setMinimumSize(800,480)
-        self.resize(1366, 768)
-        self.center()
-        #self.tabifyDockWidget(self.main_Fig,main_info)
-        #self.layer_dock.setVisible(False)
-        self.setWindowTitle('SmartSeed')
-        self.setWindowIcon(QIcon('./UI/icon_32.png'))        
-        self.showMaximized()
-        self.canvas.signal.connect(self.refreshShow)
-        self.show()
-        self.refreshShow()
-        
+        self.tabifyDockWidget(self.channel_dock,self.layer_dock)        
+    
+    def middleware(self):
+        self.layer.addLayerStack(self.mcanvas.canvas.layers)
+        pass
     
     def CreateDockWidget(self, name, widget):  # 定义一个createDock方法创建一个dockwidget
         dock = QDockWidget(name)  # 实例化dockwidget类
@@ -500,21 +494,24 @@ class MainWindow(QMainWindow):
         self.move(qr.topLeft())
     
     def closeEvent(self, event):
-        reply = QMessageBox.question(self, 'Message',
-            "Are you sure to quit?", QMessageBox.Save | 
-            QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
-        if reply == QMessageBox.Save:
-            logger.info('Save files, and close application.')
-            flag = self.saveSlot()
-            if flag:
+        if not self.__debug:
+            reply = QMessageBox.question(self, 'Message',
+                "Are you sure to quit?", QMessageBox.Save | 
+                QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+            if reply == QMessageBox.Save:
+                logger.info('Save files, and close application.')
+                flag = self.saveSlot()
+                if flag:
+                    event.accept()
+                else:
+                    event.ignore()
+            elif reply == QMessageBox.Discard:
+                logger.info("Don\'t save files, and close application.")
                 event.accept()
             else:
                 event.ignore()
-        elif reply == QMessageBox.Discard:
-            logger.info("Don\'t save files, and close application.")
-            event.accept()
         else:
-            event.ignore()
+            event.accept()
     
     def toggleMenu(self, state):
         
@@ -540,7 +537,13 @@ class MainWindow(QMainWindow):
             self.channel_dock.show()
         else:
             self.channel_dock.hide()
-            
+    
+    def setFrontColor(self,colorName):
+        self.frontcolor = QColor(colorName)
+        
+    def setBackColor(self,colorName):
+        self.backcolor = QColor(colorName)
+    
     def contextMenuEvent(self, event):
        cmenu = QMenu(self)
        
@@ -566,14 +569,12 @@ class MainWindow(QMainWindow):
     def newBlock(self):
         wel = Welcome()
         if wel.exec_() == QDialog.Accepted:
-            #self.F.DrawHistogram(self.canvas)
-            self.info = 'width: {0}\nheight: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
+            #self.F.DrawHistogram(self.mcanvas.canvas)
+            self.info = 'width: {0}\nheight: {1}'.format(self.mcanvas.canvas.layers.width(),self.mcanvas.canvas.layers.height())
             self.info_lb.setText(self.info)
             self.refreshShow()
     
-    def openimage(self):
-   # 打开文件路径
-   #设置文件扩展名过滤,注意用双分号间隔
+    def importimage(self):
         imgName,imgType= QFileDialog.getOpenFileName(self,
                                     "打开图片",
                                     "",
@@ -582,20 +583,53 @@ class MainWindow(QMainWindow):
             logger.warning('None Image has been selected!')
             return
         else:
-            logger.info('ImageName: '+imgName)
+            logger.info('Open image: '+imgName)
         
         self.layer.addLayer(cv2.imread(imgName),imgName.split('/')[-1])
-        #self.canvas.layers.changeImg(cv2.imread(imgName))
         
-        if self.canvas.layers.Image.size == 1:
+        if self.mcanvas.canvas.layers.Image.size == 1:
             return
-        self.OS.push([np.array(self.canvas.layers.Image),'openimage'])
-        #self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi)
-        #print('width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi))
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
         self.info_lb.setText(self.info)
-        #self.F.DrawHistogram(self.canvas)
         self.refreshShow()
-        #self.resize(int(1.5*self.canvas.width),int(1.2*self.canvas.height))
+        self.center()
+        
+    def openimage(self):
+        imgName,imgType= QFileDialog.getOpenFileName(self,
+                                    "打开图片",
+                                    "",
+                                    " *.jpg;;*.png;;*.jpeg;;*.bmp;;All Files (*)")
+        if imgName is '':
+            logger.warning('None Image has been selected!')
+            return
+        else:
+            logger.info('Open image: '+imgName)
+        
+        #self.layer.addLayer(cv2.imread(imgName),imgName.split('/')[-1])
+        im = Image.open(imgName)
+        try:
+            canvas_dpi = im.info['dpi'][0]
+        except:
+            canvas_dpi = 72
+        canvas_width, canvas_height = im.size
+        settings = QSettings("tmp.ini", QSettings.IniFormat)
+        settings.setValue('mode',1)
+        settings.setValue("width", canvas_width)
+        settings.setValue("height", canvas_height)
+        #settings.setValue("color", self.canvas_color)
+        settings.setValue('dpi',canvas_dpi)
+        settings.setValue('imageMode',im.mode)
+        settings.setValue('imageFormat',im.format)
+        settings.setValue("imagePath",imgName)
+        settings.setValue("imageName",imgName.split('/')[-1])
+        del im
+        self.mcanvas.newCanvas()
+        
+        if self.mcanvas.canvas.layers.Image.size == 1:
+            return
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
+        self.info_lb.setText(self.info)
+        self.refreshShow()
         self.center()
     
     def saveSlot(self):
@@ -605,30 +639,23 @@ class MainWindow(QMainWindow):
 
         if fileName is '':
             return False
-        if self.canvas.layers.Image.size == 1:
+        if self.mcanvas.canvas.layers.Image.size == 1:
             return False
         # 调用opencv写入图像
-        cv2.imwrite(fileName, self.canvas.layers.Image)
+        cv2.imwrite(fileName, self.mcanvas.canvas.layers.Image)
         return True
         
-    def refreshShow(self):
-        # 提取图像的尺寸和通道, 用于将opencv下的image转换成Qimage
-        #height, width, channel = self.canvas.shape
-        #bytesPerLine = 3 * width
-        #self.qImg = QImage(self.canvas.data, width, height, bytesPerLine,
-                           #QImage.Format_RGB888).rgbSwapped()
-        # 将Qimage显示出来
-        self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi)
-        #self.info = 'width: {0}\t height: {1}'.format(self.canvas.layers.width(),self.canvas.layers.height())
-        #print('width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.canvas.layers.width()/self.canvas.dpi,2),round(self.canvas.layers.height()/self.canvas.dpi,2),self.canvas.dpi))
+    def refreshShow(self,image=None):
+        if self.__debug:
+            logger.debug('Refresh canvas.')
+        self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.mcanvas.canvas.layers.width()/self.mcanvas.canvas.dpi,2),round(self.mcanvas.canvas.layers.height()/self.mcanvas.canvas.dpi,2),self.mcanvas.canvas.dpi)
         self.info_lb.setText(self.info)
-        #self.showFigure()
-        #self.label.setPixmap(ops.cvtCV2Pixmap(self.canvas.layers.Image))
-        cv2.imwrite('./tmp/error.jpg',self.canvas.layers.Image)
-        #self.label.resize(self.canvas.shape[1],self.canvas.shape[0])
-        #self.canvas = QPixmap.fromImage(self.qImg)
-        self.F.DrawHistogram(self.canvas.layers.Image)
-        #self.chgSize()
+        if image is not None:
+            self.mcanvas.canvas.layers.updateCurrentLayerImage(image)
+        self.F.DrawHistogram(self.mcanvas.canvas.layers.Image)
+    
+    def sentSignalToThread(self,content):
+        self.send_signal.emit(content)
     
     def setTable(self):
         sender = self.sender()
@@ -658,36 +685,40 @@ class MainWindow(QMainWindow):
             tableName = 'lookup-table-yellow.png'
         else:
             return
-        self.Thr.change('filter',tableName)
-        self.Thr.start()
-        self.showDialog(1)
+        #self.Thr.change('filter',tableName)
+        #self.Thr.start()
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'filter','other':tableName})
+        #self.showDialog(1)
         logger.info("Doing Filters Successful!")
-        self.OS.push([np.array(self.canvas.layers.Image),'doFilters'])
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'doFilters'])
         self.refreshShow()
         #self.doFilters(tableName)
     
     def AWB(self):
-        self.Thr.change('AWB')
-        self.Thr.start()
-        self.showDialog(1)
+        #self.Thr.change('AWB')
+        #self.Thr.start()
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'AWB'})
+        #self.showDialog(1)
         logger.info("AWB Successful!")
-        self.OS.push([np.array(self.canvas.layers.Image),'AWB'])
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'AWB'])
         self.refreshShow()
         
     def ACE(self):
-        self.Thr.change('ACE')
-        self.Thr.start()
-        self.showDialog(1)
+        #self.Thr.change('ACE')
+        #self.Thr.start()
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'ACE'})
+        #self.showDialog(1)
         logger.info('ACE Successful!')
-        self.OS.push([np.array(self.canvas.layers.Image),'ACE'])
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACE'])
         self.refreshShow()
         
     def ACA(self):
-        self.Thr.change('ACA')
-        self.Thr.start()
-        self.showDialog(1)
+        #self.Thr.change('ACA')
+        #self.Thr.start()
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'ACA'})
+        #self.showDialog(1)
         logger.info('ACA Successful!')
-        self.OS.push([np.array(self.canvas.layers.Image),'ACA'])
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACA'])
         self.refreshShow()
     
     def Undo(self):
@@ -701,7 +732,7 @@ class MainWindow(QMainWindow):
                 return
             else:
                 [img,op] = self.OS.peek()
-                self.canvas.layers.changeImg(img.astype(np.uint8))
+                self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
                 #self.label.Clean()
                 logger.info('Undo Operating to '+op+'!')
                 self.refreshShow()
@@ -713,7 +744,7 @@ class MainWindow(QMainWindow):
         else:
             self.OS.push(self.OS.re_pop())
             [img,op] = self.OS.peek()
-            self.canvas.layers.changeImg(img.astype(np.uint8))
+            self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
             logger.info('Redo Operating to ' + op + '!')
         self.refreshShow()
     
@@ -746,10 +777,14 @@ class MainWindow(QMainWindow):
         sip.delete(self.adj_b)
     
     def perOpTools(self,s):
-        self.canvas.draw.chgType(s)
+        if self.__debug:
+            logger.debug('Choose tool:'+s)
+        self.mcanvas.canvas.draw.chgType(s)
         self.disPre()
-        self.canvas.chgCursor(s)
-        self.adj_b = AdjBlock(self.canvas.draw)
+        self.mcanvas.canvas.chgCursor(s)
+        self.adj_b = AdjBlock(self.mcanvas.canvas.draw)
+        self.adj_b.setColorByName(self.frontcolor.name())
+        #self.mcanvas.canvas.draw.ChangePenColor(self.frontcolor)
         '''
         self.tmp_dock = QDockWidget(s+' Attributes')  # 实例化dockwidget类
         self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
@@ -757,45 +792,23 @@ class MainWindow(QMainWindow):
         self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
         self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)'''
         self.main_toolbar.addWidget(self.adj_b)
-        #if self.last_tool == '':self.canvas.draw.saveImg()
+        #if self.last_tool == '':self.mcanvas.canvas.draw.saveImg()
         self.last_tool = s
         self.refreshShow()
-        
-    
-    def showDialog(self,tar=10):
-        num = self.canvas.layers.pixNum*tar
-        self.progress = QProgressDialog(self)
-        self.progress.setStyleSheet('QProgressDialog{color:white;background-color:#535353;}')
-        self.progress.setWindowTitle("请稍等")  
-        self.progress.setLabelText("正在操作...")
-        self.progress.setCancelButtonText("取消")
-        self.progress.setMinimumDuration(5)
-        self.progress.setWindowModality(Qt.WindowModal)
-        self.progress.setRange(0,num) 
-        for i in range(num):
-            if i >= 3*num//4 and i % 10 == 0 and self.Thr.isRunning():
-                time.sleep(0.00000001)
-            elif self.Thr.isFinished():
-                i += 1000
-            self.progress.setValue(i) 
-            if self.progress.wasCanceled():
-                self.Thr.exit(0)
-                QMessageBox.warning(self,"提示","操作失败") 
-                break
-            else:
-                continue
-        self.progress.setValue(num)
-        self.progress.close()
-        del self.progress
-        #QMessageBox.information(self,"提示","操作成功")
     
     def Anime(self):
-        self.Thr.change('Anime','./samples/2.jpg')
-        self.Thr.start()
-        self.showDialog(10)
-        self.OS.push([np.array(self.canvas.layers.Image),'Anime'])
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'Anime','other':'./samples/2.jpg'})
+        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'Anime'])
         logger.info('Do Anime Filter Successful!')
         self.refreshShow()
+    
+    def vary(self):
+        self.perOpTools('Vary')
+        self.varyAct.setEnabled(False)
+    
+    def movement(self):
+        self.perOpTools("Move")
+        self.moveAct.setEnabled(False)
     
     def pencil(self):
         self.perOpTools("Pencil")
@@ -848,131 +861,96 @@ class MainWindow(QMainWindow):
         pass
     
     def Paint(self):
-        self.Thr.change('Painter')
-        self.Thr.start()
-        self.showDialog(10)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'Paint'])
+        self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'Painter'})
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Paint'])
         logger.info('Do Anime Painter Successful!')
         self.refreshShow()
     
     def Ink(self):
-        self.Thr.change('Ink')
-        self.Thr.start()
-        self.showDialog(10)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'Ink'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Ink'])
         logger.info('Do Ink Style Transfer Successful!')
         self.refreshShow()
     
     def PencilDrawing(self):
-        self.Thr.change('Pencil')
-        self.Thr.start()
-        self.showDialog(10)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'PencilDrawing'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'PencilDrawing'])
         logger.info('Do Pencil Drawing Successful!')
         self.refreshShow()
     
     def Blur(self):
-        self.Thr.change('Blur')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'Blur'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Blur'])
         logger.info('Do Blur Successful!')
         self.refreshShow()
     
     def GaussianBlur(self):
-        self.Thr.change('GaussianBlur')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'GaussianBlur'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'GaussianBlur'])
         logger.info('Do Gaussian Blur Successful!')
         self.refreshShow()
     
     def MotionBlur(self):
-        self.Thr.change('MotionBlur')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'MotionBlur'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'MotionBlur'])
         logger.info('Do Motion Blur Successful!')
         self.refreshShow()
     
     def RadialBlur(self):
-        self.Thr.change('RadialBlur')
-        self.Thr.start()
-        self.showDialog(5)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'RadialBlur'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'RadialBlur'])
         logger.info('Do Radial Blur Successful!')
         self.refreshShow()
     
     def SmartBlur(self):
-        self.Thr.change('SmartBlur')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'SmartBlur'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartBlur'])
         logger.info('Do Smart Blur Successful!')
         self.refreshShow()
     
     def BlurMore(self):
-        self.Thr.change('BlurMore')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'BlurMore'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'BlurMore'])
         logger.info('Do More Blur Successful!')
         self.refreshShow()
     
     def USM(self):
-        self.Thr.change('USM')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'USM'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'USM'])
         logger.info('Do USM Successful!')
         self.refreshShow()
     
     def EdgeSharp(self):
-        self.Thr.change('EdgeSharp')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'EdgeSharp'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'EdgeSharp'])
         logger.info('Do Edge Sharp Successful!')
         self.refreshShow()
     
     def SmartSharp(self):
-        self.Thr.change('SmartSharp')
-        self.Thr.start()
-        self.showDialog(1)
-        self.OS.push([np.array(self.canvas.tmp_img.Image),'SmartSharp'])
+        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartSharp'])
         logger.info('Do Smart Sharp Successful!')
         self.refreshShow()
     
     def light(self):
-        l = AdjDialog(self.canvas.layers,'light')
+        l = AdjDialog(self.mcanvas.canvas.layers,'light')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def comp(self):
-        l = AdjDialog(self.canvas.layers,'comp')
+        l = AdjDialog(self.mcanvas.canvas.layers,'comp')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def custom(self):
-        l = AdjDialog(self.canvas.layers,'custom')
+        l = AdjDialog(self.mcanvas.canvas.layers,'custom')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def hue(self):
-        l = AdjDialog(self.canvas.layers,'hue')
+        l = AdjDialog(self.mcanvas.canvas.layers,'hue')
         if l.exec_() == QDialog.Accepted:
             self.refreshShow()
         return
     
     def canSize(self):
-        self.canvas.canResize()
+        self.mcanvas.canvas.canResize()
         pass
     
     def imgSize(self):
-        self.canvas.imgResize()
+        self.mcanvas.canvas.imgResize()
         pass
         
 
