@@ -5,7 +5,7 @@ Created on Tue Jan 29 17:42:25 2019
 @author: Quanfita
 """
 
-from PyQt5.QtWidgets import QApplication,QDialog,QProgressDialog
+from PyQt5.QtWidgets import QApplication,QDialog,QProgressDialog,QWidget
 from PyQt5.QtCore import pyqtSignal,Qt
 import sys
 import time
@@ -13,6 +13,7 @@ import logger
 from Thread import ProThread
 from app import MainWindow
 from views import Welcome
+sys.setrecursionlimit(5000)
 #import warnings
 #warnings.filterwarnings('ignore')
 
@@ -20,16 +21,17 @@ class main:
     def __init__(self,debug=False):
         self.__debug = debug
         self.thr = ProThread()
-        self.app = QApplication(sys.argv)
+        app = QApplication(sys.argv)
         self.wel = Welcome(debug=self.__debug)
         self.thr.pro_signal[dict].connect(self.commuicateToApp)
         if self.wel.exec_() == QDialog.Accepted:
             self.mainwindow = MainWindow(debug=self.__debug)
+            self.mainwindow.show()
             self.hold_time = time.time()
             logger.info('Application Start!')
             self.mainwindow.send_signal[dict].connect(self.communicateToThread)
-        sys.exit(self.app.exec_())
         logger.info('Application running time:'+str(time.time()-self.hold_time))
+        sys.exit(app.exec_())
     
     def communicateToThread(self,content):
         if self.debug:

@@ -35,11 +35,12 @@ class Draw(QLabel):
     the results to the user, and all operations 
     done on the canvas are received through this class.
     """
-    signal = pyqtSignal([str,tuple,tuple,tuple,int,tuple])
-    signal_ = pyqtSignal([list,int,tuple])
-    drop_signal = pyqtSignal(tuple)
-    fill_signal = pyqtSignal(tuple)
+    #signal = pyqtSignal([str,tuple,tuple,tuple,int,tuple])
+    #signal_ = pyqtSignal([list,int,tuple])
+    #drop_signal = pyqtSignal(tuple)
+    #fill_signal = pyqtSignal(tuple)
     color_signal = pyqtSignal([int,int,int])
+    send_signal = pyqtSignal(dict)
     
     def __init__(self,debug=False):
         super(Draw,self).__init__()
@@ -135,15 +136,23 @@ class Draw(QLabel):
         if self.type in ['Line','Rect','Circle']:
             self.point_start = (event.pos().x(), event.pos().y())
             if QApplication.keyboardModifiers() == Qt.AltModifier:
-                self.drop_signal.emit((event.pos().x(), event.pos().y()))
+                #self.drop_signal.emit((event.pos().x(), event.pos().y()))
+                self.send_signal.emit({'mode':'Dropper','position':(event.pos().x(), event.pos().y())})
         elif self.type == 'Pencil':
             self.pos_xy = []
             if QApplication.keyboardModifiers() == Qt.AltModifier:
-                self.drop_signal.emit((event.pos().x(), event.pos().y()))
+                #self.drop_signal.emit((event.pos().x(), event.pos().y()))
+                self.send_signal.emit({'mode':'Dropper','position':(event.pos().x(), event.pos().y())})
         elif self.type == 'Dropper':
-            self.drop_signal.emit((event.pos().x(), event.pos().y()))
+            #self.drop_signal.emit((event.pos().x(), event.pos().y()))
+            self.send_signal.emit({'mode':'Dropper','position':(event.pos().x(), event.pos().y())})
         elif self.type == 'Fill':
-            self.fill_signal.emit((event.pos().x(), event.pos().y(),(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha())))
+            #self.fill_signal.emit((event.pos().x(), event.pos().y(),(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha())))
+            self.send_signal.emit({'mode':'Fill','position':(event.pos().x(), event.pos().y()),'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
+        elif self.type == 'Vary':
+            self.point_start = (event.pos().x(), event.pos().y())
+            self.point_end = (event.pos().x(), event.pos().y())
+            self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
     
     def mouseMoveEvent(self,event):
         if self.flag:
@@ -159,19 +168,28 @@ class Draw(QLabel):
             elif self.type == 'Pencil':
                 pos_tmp = (event.pos().x(), event.pos().y())
                 self.pos_xy.append(pos_tmp)
+            elif self.type == 'Vary':
+                self.point_end = (event.pos().x(), event.pos().y())
+                self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
             self.update()
     
     def mouseReleaseEvent(self,event):
         if self.flag:
             if self.type in ['Line','Rect','Circle']:
-                self.signal.emit(self.type,self.point_start,self.point_end,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()),self.thickness,(self.__str_to_BGR(self.brush.name()[1:]),self.brush.alpha()))
+                self.send_signal.emit({'mode':self.type,'point_start':self.point_start,'point_end':self.point_end,'pen_color':(self.__str_to_BGR(self.pencolor.name()[1:])),'thick':self.thickness,'brush_color':(self.__str_to_BGR(self.brush.name()[1:]))})
+                #self.signal.emit(self.type,self.point_start,self.point_end,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()),self.thickness,(self.__str_to_BGR(self.brush.name()[1:]),self.brush.alpha()))
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
             elif self.type == 'Pencil':
-                self.signal_.emit(self.pos_xy,self.thickness,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()))
+                self.send_signal.emit({'mode':self.type,'point_list':self.pos_xy,'thick':self.thickness,'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
+                #self.signal_.emit(self.pos_xy,self.thickness,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()))
                 pos_test = (-1, -1)
                 self.pos_xy.append(pos_test)
                 self.pos_xy = []
+            elif self.type == 'Vary':
+                self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':True})
+                self.point_start = (-1,-1)
+                self.point_end = (-1,-1)
     
             self.flag = False
             self.update()
@@ -387,6 +405,7 @@ class Canvas(QWidget):
         self.setStyleSheet("background-color:#282828;border:0px;padding:0px;margin:0px;")
         self.draw = Draw(debug=self.__debug)
         self.canvasName = 'Untitled - 1'
+        self.layer_idx = 0
         self.scroll = QScrollArea()
         self.scroll.setAlignment(Qt.AlignCenter)
         self.scroll.setWidget(self.draw)
@@ -404,13 +423,37 @@ class Canvas(QWidget):
         self.vbox = QVBoxLayout()
         self.vbox.addWidget(self.scroll)
         self.setLayout(self.vbox)
-        self.draw.signal[str,tuple,tuple,tuple,int,tuple].connect(self.draw_2Pix)
-        self.draw.signal_[list,int,tuple].connect(self.draw_NPix)
+        #self.draw.signal[str,tuple,tuple,tuple,int,tuple].connect(self.draw_2Pix)
+        #self.draw.signal_[list,int,tuple].connect(self.draw_NPix)
         self.layers.signal.connect(self.imgOperate)
         self.layers.layNum_signal[int].connect(self.chgLayerImage)
         self.layers.changeImg(self.layers.Image)
-        self.draw.drop_signal[tuple].connect(self.dropColor)
-        self.draw.fill_signal[tuple].connect(self.fillColor)
+        self.draw.send_signal[dict].connect(self.taskDistribution)
+        #self.draw.drop_signal[tuple].connect(self.dropColor)
+        #self.draw.fill_signal[tuple].connect(self.fillColor)
+    
+    def taskDistribution(self,content):
+        mode = content['mode']
+        if mode in ['Line','Rect','Circle']:
+            self.draw_2Pix(mode,content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'])
+        elif mode == 'Pencil':
+            self.draw_NPix(content['point_list'],content['thick'],content['color'])
+        elif mode == 'Dropper':
+            self.dropColor(content['position'])
+        elif mode == 'Fill':
+            self.fillColor(content['position'],content['color'])
+        elif mode == 'Vary':
+            self.varyImage(content['start_position'],content['end_position'],content['enter'])
+        else:
+            return
+    
+    def varyImage(self,start,end,enter):
+        last = self.layers.layer[self.layer_idx].getPositionOnCanvas()
+        self.layers.layer[self.layer_idx].setPositionOnCanvasByDistance((end[0] - start[0], end[1] - start[1]))
+        self.layers.updateImg()
+        if not enter:
+            self.layers.layer[self.layer_idx].setPositionOnCanvas(last)
+        pass
     
     def chgLayerImage(self,idx):
         self.layer_idx = idx
@@ -421,15 +464,15 @@ class Canvas(QWidget):
         end = ops.cvtCanPosAndLayerPos(end,(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
         #print(start,end)
         if mode == 'Line':
-            cv2.line(self.layers.tmp_img,start,end,pencolor[0],thick)
+            cv2.line(self.layers.tmp_img,start,end,pencolor,thick)
         elif mode == 'Rect':
             if brush[-1] != 0:
-                cv2.rectangle(self.layers.tmp_img,start,end,brush[0],-1)
-            cv2.rectangle(self.layers.tmp_img,start,end,pencolor[0],thick)
+                cv2.rectangle(self.layers.tmp_img,start,end,brush,-1)
+            cv2.rectangle(self.layers.tmp_img,start,end,pencolor,thick)
         elif mode == 'Circle':
             if brush[-1] != 0:
-                cv2.ellipse(self.layers.tmp_img,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush[0],-1)
-            cv2.ellipse(self.layers.tmp_img,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor[0],thick)
+                cv2.ellipse(self.layers.tmp_img,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush,-1)
+            cv2.ellipse(self.layers.tmp_img,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor,thick)
         #self.layers.tmp_img = 
         self.layers.layer[self.layer_idx].changeImg(self.layers.tmp_img)
         self.layers.updateImg()
@@ -440,15 +483,17 @@ class Canvas(QWidget):
         [b,g,r] = self.layers.Image[pos[1],pos[0]]
         self.draw.changeBlockColor(b,g,r)
         
-    def fillColor(self,pos):
+    def fillColor(self,pos,color,r=50):
         #print(pos)
+        if self.__debug:
+            logger.debug('Position:'+str(pos)+', color:'+str(color)+', r:'+str(r))
         (x,y) = ops.cvtCanPosAndLayerPos((pos[0],pos[1]),(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
         if self.layers.isPositionOutOfLayer((x,y)):
             return
         [b,g,r] = self.layers.tmp_img[y,x]
         h,w = self.layers.tmp_img.shape[:2]
         mask=np.zeros([h+2,w+2],np.uint8)
-        cv2.floodFill(self.layers.tmp_img,mask,(x,y),pos[-1][0],(50,50,50),(50,50,50),cv2.FLOODFILL_FIXED_RANGE)
+        cv2.floodFill(self.layers.tmp_img,mask,(x,y),color,(50,50,50),(50,50,50),cv2.FLOODFILL_FIXED_RANGE)
         self.layers.layer[self.layer_idx].changeImg(self.layers.tmp_img)
         self.layers.updateImg()
     

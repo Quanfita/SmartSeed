@@ -74,7 +74,13 @@ class ImgObject(object):
         if self.__debug:
             logger.debug('Set position on canvas:'+str(pos))
         self.__posOnCanvas = pos
-        
+    
+    def setPositionOnCanvasByDistance(self,distance):
+        pos = (self.__posOnCanvas[0] + distance[0], self.__posOnCanvas[1] + distance[1])
+        if self.__debug:
+            logger.debug('Set position on canvas:'+str(pos))
+        self.__posOnCanvas = pos
+    
     def isPosOutOfLayer(self,pos):
         if 0 < pos[0] < self.__width and 0 < pos[1] < self.__height:
             return False
@@ -129,7 +135,9 @@ class LayerStack(QObject):
             self.Image[:,:,2] = self.color_num[0]
         self.pixNum = self.__width * self.__height
         tmp_layer = ImgObject(self.Image)
+        tmp_layer.setPositionOnCanvas(((self.__width+1)//2,(self.__height+1)//2))
         tmp_layer.setLayerName(self.name)
+        self.tmp_img = self.Image
         self.layer_names.append(self.name)
         self.layer.insert(0,tmp_layer)
         self.mix_list.insert(0,'Normal')
@@ -154,15 +162,28 @@ class LayerStack(QObject):
             tmp[:,:,0] = self.color_num[2]
             tmp[:,:,1] = self.color_num[1]
             tmp[:,:,2] = self.color_num[0]
-        
+        '''
         cen_x,cen_y = (self.__width+1)//2,(self.__height+1)//2
         img_w,img_h = img.shape[1],img.shape[0]
         point_sx = max(cen_x - (img_w+1) // 2,0)
         point_sy = max(cen_y - (img_h+1) // 2,0)
         point_ix = -min(cen_x - (img_w+1) // 2,0)
         point_iy = -min(cen_y - (img_h+1) // 2,0)
-        tmp[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
-        mask[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
+        '''
+        if self.__debug:
+            logger.debug(str(img.getPositionOnCanvas())+', '+str(img.getCenterOfImage()))
+        point_sx = max(self.__width - img.getCenterOfImage()[0] - (self.__width - img.getPositionOnCanvas()[0]), 0)
+        point_sy = max(self.__height - img.getCenterOfImage()[1] - (self.__height - img.getPositionOnCanvas()[1]), 0)
+        point_ix = -min(-img.getCenterOfImage()[0] + img.getPositionOnCanvas()[0], 0)
+        point_iy = -min(-img.getCenterOfImage()[1] + img.getPositionOnCanvas()[1], 0)
+        point_jx = min(self.__width - img.getPositionOnCanvas()[0] + img.getCenterOfImage()[0], img.width())
+        point_jy = min(self.__height - img.getPositionOnCanvas()[1] + img.getCenterOfImage()[1], img.height())
+        img_h = img.height() - point_iy
+        img_w = img.width() - point_ix
+        tmp[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img.Image[point_iy:point_jy,point_ix:point_jx]
+        mask[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
+        #tmp[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img.Image[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
+        #mask[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
         if self.__debug:
             logger.debug('Visible area:'+str((point_sx,point_sy,min(img_w,self.__width),min(img_h,self.__height))))
         return tmp,mask
@@ -191,6 +212,7 @@ class LayerStack(QObject):
         tmp[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
         '''
         tmp_layer = ImgObject(img)
+        tmp_layer.setPositionOnCanvas(((self.__width+1)//2,(self.__height+1)//2))
         tmp_layer.setLayerName(name)
         self.layer_names.append(name)
         self.layer.insert(idx,tmp_layer)
@@ -290,96 +312,96 @@ class LayerStack(QObject):
     
     def __mix(self,img,idx):
         if self.mix_list[idx] == "Normal":
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == "LinearLight":
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Overlay(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Overlay':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Overlay(self.Image,_img)
             return self.__getMaskRes(_img,mask)
             #return Mixed.Overlay(self.Image,self.__getVisibleArea(img.Image))
         elif self.mix_list[idx] == 'Screen':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Screen(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Multiply':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Multiply(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'SoftLight':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.SoftLight(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'HardLight':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.HardLight(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'LinearAdd':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Linear_add(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'ColorBurn':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.ColorBurn(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'LinearBurn':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.LinearBurn(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'ColorDodge':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.ColorDodge(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'LinearDodge':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.LinearDodge(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'LighterColor':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.LighterColor(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'VividLight':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.VividLight(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'PinLight':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.PinLight(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'HardMix':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.HardMix(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Difference':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Difference(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Exclusion':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Exclusion(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Subtract':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Subtract(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Divide':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             _img = Mixed.Divide(self.Image,_img)
             return self.__getMaskRes(_img,mask)
         elif self.mix_list[idx] == 'Hue':
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             #_img = Mixed.Hue(self.Image,_img)
             return self.__getMaskRes(_img,mask) #Mixed.Hue(self.Image,img.Image)
         else:
-            _img, mask = self.__getVisibleArea(img.Image)
+            _img, mask = self.__getVisibleArea(img)
             return self.__getMaskRes(_img,mask)
         
     
     def __remix(self):
-        self.Image,mask = self.__getVisibleArea(self.layer[0].Image)
+        self.Image,mask = self.__getVisibleArea(self.layer[0])
         #cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
         for i in range(1,len(self.layer)):
             self.Image = self.__mix(self.layer[i],i)
