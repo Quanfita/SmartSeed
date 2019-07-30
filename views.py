@@ -10,6 +10,7 @@ and each part is a component of the main interface.
 
 from functools import singledispatch
 import sys
+import math
 import cv2
 import numpy as np
 import ops
@@ -28,6 +29,62 @@ from PyQt5.QtGui import (QPainter, QPen, QColor, QGuiApplication,QPixmap,
                          QConicalGradient,QLinearGradient,QFont,QImage,QDrag)
 from PyQt5.QtCore import (Qt,pyqtSignal,QRegExp,QItemSelectionModel,pyqtSlot,
                           QRectF,QSettings,QPoint,QMimeData,QSize,QObject)
+
+class Brush(QObject):
+    def __init__(self):
+        self.shape = np.zeros([1024,1024,3],dtype=np.uint8)
+        self.mask = 255*np.ones([1024,1024],dtype=np.uint8)
+        self.shape_list = []
+        self.type = None
+        self.color = QColor('white')
+        self.initShape()
+    
+    def initShape(self):
+        if self.type is None:
+            self.shape = cv2.circle(self.shape, (512,512), 512, self._getBGR(self.color), -1)
+        pass
+    
+    def setColor(self,color):
+        self.color = color
+    
+    def changeColorFromBGR(self,BGR):
+        self.color = QColor(*BGR)
+    
+    def getColor(self):
+        return self.color
+    
+    def _getBGR(self,color):
+        return color.blue(), color.green(), color.red()
+    
+    def changeShape(self,type_):
+        self.type = type_
+        pass
+    
+    def draw(self,img,position,size):
+        r = (size+1)//2
+        imageROI = img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:]
+        tmp_shape = cv2.resize(self.shape,(imageROI.shape[1],imageROI.shape[0]))
+        gray = cv2.cvtColor(tmp_shape,cv2.COLOR_BGR2GRAY)
+        ret,mask = cv2.threshold(gray,200,255,cv2.THRESH_BINARY)
+        mask_inv = cv2.bitwise_not(mask)
+        img1_bg = cv2.bitwise_and(imageROI,imageROI,mask = mask_inv)
+        img2_fg = cv2.bitwise_and(tmp_shape,tmp_shape,mask = mask)
+        res = cv2.add(img1_bg,img2_fg)
+        img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:] = res
+        #cv2.imwrite('tmp.jpg',imageROI)
+        #print(imageROI,tmp_shape)
+        #cv2.imwrite('brush.jpg',tmp_shape)
+        '''
+        tmp_shape = cv2.resize(self.shape,(size,size))
+        tmp_mask = cv2.resize(self.mask,(size,size))
+        print(img.shape,tmp_shape.shape,tmp_mask.shape,position)
+        res = cv2.seamlessClone(tmp_shape, 
+                          img, 
+                          tmp_mask, 
+                          position, 
+                          cv2.MIXED_CLONE)
+                          #cv2.NORMAL_CLONE)'''
+        return img
 
 class Draw(QLabel):
     """
@@ -49,6 +106,7 @@ class Draw(QLabel):
         palette = QPalette()
         palette.setBrush(QPalette.Window,QBrush(Qt.Dense7Pattern))
         self.setPalette(palette)
+        self._rect = (0,0,0,0)
         self.setAlignment(Qt.AlignCenter)
         self.pos_xy = []
         self.pos_tmp = []
@@ -89,12 +147,16 @@ class Draw(QLabel):
         else:
             self.setMouseTracking(False)
     
+    def setImageRect(self,rect):
+        self._rect = rect
+    
     def paintEvent(self,event):
         # There overload the paintEvent Function, 
         # different drawing according to different flags,
         # it just shows to the user.
         super().paintEvent(event)
         self.painter = QPainter()
+        #self.painter.setRenderHint(QPainter.Antialiasing, True)
         self.painter.begin(self)
         self.pen = QPen(self.pencolor, self.thickness, self.linestyle)
         self.painter.setPen(self.pen)
@@ -127,6 +189,26 @@ class Draw(QLabel):
             self.painter.drawEllipse(self.point_start[0],self.point_start[1],
                                   self.point_end[0] - self.point_start[0],
                                   self.point_end[1] - self.point_start[1])
+        elif self.type == 'Brush':
+            pass
+        elif self.type == 'Vary':
+            #print(self._rect)
+            #tmp = [self.pencolor, self.thickness, self.linestyle]
+            self.painter.setPen(QPen(QColor('black'), 1, Qt.SolidLine))
+            self.painter.drawRect(*self._rect)
+            self.painter.drawRect(self._rect[0] - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[0] + self._rect[2] - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[0] - 3,self._rect[1] + self._rect[3] - 3,7,7)
+            self.painter.drawRect(self._rect[0] + self._rect[2] - 3,self._rect[1] + self._rect[3] - 3,7,7)
+            self.painter.drawRect(self._rect[0] + self._rect[2]//2 - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[0] - 3,self._rect[1] + self._rect[3]//2 - 3,7,7)
+            self.painter.drawRect(self._rect[0] + self._rect[2]//2 - 3,self._rect[1] + self._rect[3] - 3,7,7)
+            self.painter.drawRect(self._rect[0] + self._rect[2] - 3,self._rect[1] + self._rect[3]//2 - 3,7,7)
+            self.painter.drawEllipse(self._rect[0] + self._rect[2]//2 - 3,self._rect[1] + self._rect[3]//2 - 3,7,7)
+            self.painter.drawLine(self._rect[0] + self._rect[2]//2,self._rect[1] + self._rect[3]//2 - 5,self._rect[0] + self._rect[2]//2,self._rect[1] + self._rect[3]//2 + 5)
+            self.painter.drawLine(self._rect[0] + self._rect[2]//2 - 5,self._rect[1] + self._rect[3]//2,self._rect[0] + self._rect[2]//2 + 5,self._rect[1] + self._rect[3]//2)
+            self.painter.setPen(self.pen)
+            #self.painter.drawRect()
         self.painter.end()
         pass
     
@@ -135,6 +217,7 @@ class Draw(QLabel):
         #print(event.pos())
         if self.type in ['Line','Rect','Circle']:
             self.point_start = (event.pos().x(), event.pos().y())
+            self.point_end = (event.pos().x(), event.pos().y())
             if QApplication.keyboardModifiers() == Qt.AltModifier:
                 #self.drop_signal.emit((event.pos().x(), event.pos().y()))
                 self.send_signal.emit({'mode':'Dropper','position':(event.pos().x(), event.pos().y())})
@@ -153,6 +236,8 @@ class Draw(QLabel):
             self.point_start = (event.pos().x(), event.pos().y())
             self.point_end = (event.pos().x(), event.pos().y())
             self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
+        elif self.type == 'Brush':
+            self.send_signal.emit({'mode':'Brush','type':None,'size':self.thickness,'position':(event.pos().x(), event.pos().y()),'is_start':True})
     
     def mouseMoveEvent(self,event):
         if self.flag:
@@ -171,6 +256,8 @@ class Draw(QLabel):
             elif self.type == 'Vary':
                 self.point_end = (event.pos().x(), event.pos().y())
                 self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
+            elif self.type == 'Brush':
+                self.send_signal.emit({'mode':'Brush','type':None,'size':self.thickness,'position':(event.pos().x(), event.pos().y()),'is_start':False})
             self.update()
     
     def mouseReleaseEvent(self,event):
@@ -190,6 +277,8 @@ class Draw(QLabel):
                 self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':True})
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
+            elif self.type == 'Brush':
+                self.send_signal.emit({'mode':'Brush','type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':(event.pos().x(), event.pos().y()),'is_start':False})
     
             self.flag = False
             self.update()
@@ -391,7 +480,40 @@ class MutiCanvas(QTabWidget):
         #self.deleted.emit({'mode':'delete','index':idx})
         if self.__debug:
             logger.debug('Delete Canvas index:'+str(idx)+'total '+str(len(self.canvasList))+' canvas.')
+
+class CanvasScroll(QScrollArea):
+    def __init__(self):
+        super().__init__()
+        self._rect = (0,0,0,0)
+    
+    def draw(self,rect):
+        self._rect = rect
         
+    def paintEvent(self,event):
+        # There overload the paintEvent Function, 
+        # different drawing according to different flags,
+        # it just shows to the user.
+        super().paintEvent(event)
+        self.painter = QPainter(self.viewport())
+        #self.painter.setRenderHint(QPainter.Antialiasing, True)
+        self.painter.begin(self)
+        self.pen = QPen(QColor('black'), 1, Qt.SolidLine)
+        self.painter.setPen(self.pen)
+        #print(self._rect)
+        w, h = self._rect[2] - self._rect[0], self._rect[3] - self._rect[1]
+        self.painter.drawRect(self._rect[0],self._rect[1],w,h)
+        self.painter.drawRect(self._rect[0] - 3,self._rect[1] - 3,7,7)
+        self.painter.drawRect(self._rect[2] - 3,self._rect[1] - 3,7,7)
+        self.painter.drawRect(self._rect[0] - 3,self._rect[3] - 3,7,7)
+        self.painter.drawRect(self._rect[2] - 3,self._rect[3] - 3,7,7)
+        self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[1] - 3,7,7)
+        self.painter.drawRect(self._rect[0] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+        self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[3] - 3,7,7)
+        self.painter.drawRect(self._rect[2] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+        self.painter.drawEllipse((self._rect[0] + self._rect[2])//2 - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+        self.painter.drawLine((self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 - 5,(self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 + 5)
+        self.painter.drawLine((self._rect[0] + self._rect[2])//2 - 5,(self._rect[1] + self._rect[3])//2,(self._rect[0] + self._rect[2])//2 + 5,(self._rect[1] + self._rect[3])//2)
+        self.painter.end()
 
 class Canvas(QWidget):
     """
@@ -404,9 +526,12 @@ class Canvas(QWidget):
         self.setMinimumSize(250, 300)
         self.setStyleSheet("background-color:#282828;border:0px;padding:0px;margin:0px;")
         self.draw = Draw(debug=self.__debug)
-        self.canvasName = 'Untitled - 1'
+        self.canvasName = 'Untitled-1'
         self.layer_idx = 0
-        self.scroll = QScrollArea()
+        self._flag = False
+        self.center_point = ((self.width()+1)//2, (self.height()+1)//2)
+        self.brush = Brush()
+        self.scroll = CanvasScroll()
         self.scroll.setAlignment(Qt.AlignCenter)
         self.scroll.setWidget(self.draw)
         settings = QSettings("tmp.ini", QSettings.IniFormat)
@@ -421,6 +546,8 @@ class Canvas(QWidget):
         self.dpi = int(settings.value('dpi'))
         self.draw.resize(*self.layers.ImgInfo())
         self.vbox = QVBoxLayout()
+        self.vbox.setAlignment(Qt.AlignCenter)
+        self.vbox.setContentsMargins(0,0,0,0)
         self.vbox.addWidget(self.scroll)
         self.setLayout(self.vbox)
         #self.draw.signal[str,tuple,tuple,tuple,int,tuple].connect(self.draw_2Pix)
@@ -432,7 +559,16 @@ class Canvas(QWidget):
         #self.draw.drop_signal[tuple].connect(self.dropColor)
         #self.draw.fill_signal[tuple].connect(self.fillColor)
     
+    def getCenterPoint(self):
+        return ((self.width()+1)//2, (self.height()+1)//2)
+    
+    def getPosition(self,pos):
+        x,y = self.getCenterPoint()[0] - self.draw.getCenterOfCanvas()[0] + pos[0], self.getCenterPoint()[1] - self.draw.getCenterOfCanvas()[1] + pos[1]
+        return (x,y)
+    
     def taskDistribution(self,content):
+        if self.__debug:
+            logger.debug('Content:'+str(content))
         mode = content['mode']
         if mode in ['Line','Rect','Circle']:
             self.draw_2Pix(mode,content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'])
@@ -443,7 +579,14 @@ class Canvas(QWidget):
         elif mode == 'Fill':
             self.fillColor(content['position'],content['color'])
         elif mode == 'Vary':
+            x1,y1,x2,y2 = self.layers.getRectOfImage()
+            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            self.scroll.draw(self._rect)
+            self.scroll.repaint()
             self.varyImage(content['start_position'],content['end_position'],content['enter'])
+        elif mode == 'Brush':
+            self.brushDraw(content['position'],content['type'],content['color'],content['size'],content['is_start'])
         else:
             return
     
@@ -454,6 +597,43 @@ class Canvas(QWidget):
         if not enter:
             self.layers.layer[self.layer_idx].setPositionOnCanvas(last)
         pass
+    
+    def BezierCurve(self,p1,p2,p3,p4):
+        t = np.linspace(0,1,5)
+        res = (p1*(1-t)**3)+(3*p2*t*(1-t)**2)+(3*p3*(1-t)*t**2)+(p4*t**3)
+        return res
+    
+    def brushDraw(self,pos,type_,color,size,is_start):
+        pos = ops.cvtCanPosAndLayerPos(pos,(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
+        if is_start:
+            if type_ is not None:
+                self.brush.changeShape(type_)
+                self.brush.changeColor(color)
+            self.tmp_pos = pos
+            self.layers.tmp_img = self.brush.draw(self.layers.tmp_img, pos,size)
+            return
+        point_list = self._get_points(pos)
+        for point in point_list:
+            self.layers.tmp_img = self.brush.draw(self.layers.tmp_img, point,size)
+        self.layers.layer[self.layer_idx].changeImg(self.layers.tmp_img)
+        self.layers.updateImg()
+        self.tmp_pos = pos
+        pass
+    
+    def _get_points(self, pos):
+        """ Get all points between last_point ~ now_point. """
+        points = [self.tmp_pos]
+        len_x = pos[0] - self.tmp_pos[0]
+        len_y = pos[1] - self.tmp_pos[1]
+        length = math.sqrt(len_x ** 2 + len_y ** 2)
+        if length == 0: return points
+        step_x = len_x / length
+        step_y = len_y / length
+        for i in range(int(length)):
+            points.append((points[-1][0] + step_x, points[-1][1] + step_y))
+        points = map(lambda x:(int(0.5+x[0]), int(0.5+x[1])), points)
+        # return light-weight, uniq list
+        return list(set(points))
     
     def chgLayerImage(self,idx):
         self.layer_idx = idx

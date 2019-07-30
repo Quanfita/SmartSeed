@@ -17,6 +17,7 @@ class ImgObject(object):
         self.__realImage = img
         self.__layerName = ''
         self.Image = img
+        self._rect = None
         self.icon = ops.cvtCV2Pixmap(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200]))
         if mask == None:
             mask = np.zeros(self.Image.shape,dtype=np.uint8)
@@ -29,6 +30,12 @@ class ImgObject(object):
         
     def getLayerName(self):
         return self.__layerName
+    
+    def setImageRect(self,rect):
+        self._rect = rect
+    
+    def getImageRect(self):
+        return self._rect
     
     def setLayerName(self,name):
         self.__layerName = name
@@ -153,6 +160,18 @@ class LayerStack(QObject):
             logger.debug('From '+str(s)+' to '+str(l))
         return l
     
+    def currentImageObject(self):
+        return self.layer[self.selectedLayerIndex]
+    
+    def getRectOfImage(self):
+        img = self.currentImageObject()
+        '''
+        x1, y1 = img.getPositionOnCanvas()[0] - img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] - img.getCenterOfImage()[1]
+        x2, y2 = img.getPositionOnCanvas()[0] + img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] + img.getCenterOfImage()[1]
+        img.setImageRect((x1,y1,x2,y2))
+        '''
+        return img.getImageRect()
+    
     def __getVisibleArea(self,img):
         tmp = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
         mask = np.zeros((self.__height,self.__width),dtype=np.uint8)
@@ -184,6 +203,9 @@ class LayerStack(QObject):
         mask[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
         #tmp[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img.Image[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
         #mask[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
+        x1, y1 = img.getPositionOnCanvas()[0] - img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] - img.getCenterOfImage()[1]
+        x2, y2 = img.getPositionOnCanvas()[0] + img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] + img.getCenterOfImage()[1]
+        img.setImageRect((x1,y1,x2,y2))
         if self.__debug:
             logger.debug('Visible area:'+str((point_sx,point_sy,min(img_w,self.__width),min(img_h,self.__height))))
         return tmp,mask
@@ -450,4 +472,4 @@ if __name__ == '__main__':
     Img = ImgObject(img)
     Img.AddLayer(img)
     #Img.__remix()
-    cv2.imwrite('./tmp/mixed.jpg',Img.Image)
+    #cv2.imwrite('./tmp/mixed.jpg',Img.Image)

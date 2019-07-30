@@ -769,6 +769,8 @@ class MainWindow(QMainWindow):
             self.brushAct.setEnabled(True)
         elif self.last_tool == 'Stamp':
             self.stampAct.setEnabled(True)
+        elif self.last_tool == 'Vary':
+            self.varyAct.setEnabled(True)
         else: return
         '''
         self.removeDockWidget(self.tmp_dock)
