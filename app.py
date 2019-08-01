@@ -85,7 +85,7 @@ class MainWindow(QMainWindow):
         self.setDockNestingEnabled(True)
         self.setMinimumSize(800,480)
         self.resize(1366, 768)
-        self.center()
+        #self.center()
 
         self.setWindowTitle('SmartSeed')
         self.setWindowIcon(QIcon('./UI/icon_32.png'))        
@@ -399,6 +399,10 @@ class MainWindow(QMainWindow):
         self.varyAct.setStatusTip('Vary')
         self.varyAct.triggered.connect(self.vary)
         
+        self.zoomAct = QAction(QIcon('./UI/search.svg'),'zoom',self)
+        self.zoomAct.setStatusTip('Zoom')
+        self.zoomAct.triggered.connect(self.zoom)
+        
         self.toolBar.addAction(self.varyAct)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.pencilAct)
@@ -422,6 +426,8 @@ class MainWindow(QMainWindow):
         self.toolBar.addAction(self.stampAct)
         self.toolBar.addSeparator()
         self.toolBar.addAction(self.moveAct)
+        self.toolBar.addSeparator()
+        self.toolBar.addAction(self.zoomAct)
         self.toolBar.addSeparator()
         self.toolBar.addWidget(self.colorWidget)
         self.toolBar.setOrientation(Qt.Vertical)
@@ -473,11 +479,11 @@ class MainWindow(QMainWindow):
         self.channel_dock.setTitleBarWidget(tmp_widget)
         self.addDockWidget(Qt.RightDockWidgetArea,self.channel_dock)
         self.tabifyDockWidget(self.channel_dock,self.layer_dock)        
-    
+    '''
     def middleware(self):
         self.layer.addLayerStack(self.mcanvas.canvas.layers)
         pass
-    
+    '''
     def CreateDockWidget(self, name, widget):  # 定义一个createDock方法创建一个dockwidget
         dock = QDockWidget(name)  # 实例化dockwidget类
         dock.setWidget(widget)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
@@ -486,13 +492,13 @@ class MainWindow(QMainWindow):
         dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
                             'QDockWidget:title{color:#cdcdcd;background-color:#535353;}')
         self.addDockWidget(Qt.RightDockWidgetArea, dock)  
-    
+    '''
     def center(self):
         qr = self.frameGeometry()
         cp = QDesktopWidget().availableGeometry().center()
         qr.moveCenter(cp)
         self.move(qr.topLeft())
-    
+    '''
     def closeEvent(self, event):
         if not self.__debug:
             reply = QMessageBox.question(self, 'Message',
@@ -592,7 +598,7 @@ class MainWindow(QMainWindow):
         self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
         self.info_lb.setText(self.info)
         self.refreshShow()
-        self.center()
+        #self.center()
         
     def openimage(self):
         imgName,imgType= QFileDialog.getOpenFileName(self,
@@ -630,7 +636,7 @@ class MainWindow(QMainWindow):
         self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
         self.info_lb.setText(self.info)
         self.refreshShow()
-        self.center()
+        #self.center()
     
     def saveSlot(self):
         # 调用存储文件dialog
@@ -861,6 +867,10 @@ class MainWindow(QMainWindow):
         self.perOpTools("Stamp")
         self.stampAct.setEnabled(False)
         pass
+    
+    def zoom(self):
+        self.perOpTools('Zoom')
+        self.zoomAct.setEnabled(False)
     
     def Paint(self):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'Painter'})

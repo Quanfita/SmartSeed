@@ -125,11 +125,39 @@ def zeroPositionCheck(imgPosition,imgCenter,canCenter):
     distanceX, distanceY = imgCenter[0] - canCenter[0] + imgPosition[0], imgCenter[1] - canCenter[1] + imgPosition[1]
     return (distanceX,distanceY)
 
-def cvtCanPosAndLayerPos(pix,imgPosition,imgCenter,canCenter):
+def cvtCanPosAndLayerPos(pix,imgPosition,imgCenter,canCenter,offset=(0,0)):
     (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
-    return (pix[0] + disX, pix[1] + disY)
+    return (pix[0] + disX + offset[0], pix[1] + disY + offset[1])
+
+def addWithAlpha(self,imgT,imgB):
+    imgT,imgB = imgT/255,imgB/255
+    tmp = imgT[:,:,:3]*imgT[:,:,3] + (1 - imgT[:,:,3])*imgB[:,:,:3]*imgB[:,:,3]
+    return (255*tmp).astype(np.uint8)
+
+def drawBackground(w,h):
+    img = np.ones([h,w,3],dtype=np.uint8)
+    img = img*255
+    for i in range(0,img.shape[0],20):
+        for j in range(0,img.shape[1],20):
+            if j+10 >= img.shape[1] and i+10>=img.shape[0]:
+                img[i:,j:] = 204
+            elif (j+10 < img.shape[1] and i+10 < img.shape[0]) and (j+20 >= img.shape[1] and i+20>=img.shape[0]):
+                img[i:i+10,j:j+10] = 204
+                img[i+10:,j+10:] = 204
+            elif j+10 >= img.shape[1]:
+                img[i:i+10,j:] = 204
+            elif i+10>=img.shape[0]:
+                img[i:,j:j+10] = 204
+            else:
+                img[i:i+10,j:j+10] = 204
+                img[i+10:i+20,j+10:j+20] = 204
+    img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
+    return img
+
 '''
 def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):
     (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
     return (pix[0] + disX, pix[1] + disY)
     '''
+if __name__ == '__main__':
+    drawBackground(1200,800)
