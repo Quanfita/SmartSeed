@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import QApplication,QDialog,QProgressDialog,QWidget
 from PyQt5.QtCore import pyqtSignal,Qt
 import sys
 import time
+import platform
 import logger
 from Thread import ProThread
 from app import MainWindow
@@ -19,6 +20,9 @@ sys.setrecursionlimit(5000)
 
 class main:
     def __init__(self,debug=False):
+        if platform.system() == 'Windows':
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("myappid")
         self.__debug = debug
         self.thr = ProThread()
         app = QApplication(sys.argv)

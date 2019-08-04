@@ -36,16 +36,17 @@ class Brush(QObject):
         self.shape = np.zeros([1024,1024,4],dtype=np.uint8)
         self.mask = 255*np.ones([1024,1024],dtype=np.uint8)
         self.shape_list = []
-        self.icon = cv2.cvtColor(self.shape,cv2.COLOR_BGRA2GRAY)
         self.type = None
         self.size_ = 1024
         self.color = QColor('white')
+        self.icon = cv2.resize(self.shape,(self.size_,self.size_))
         self.initShape()
     
     def initShape(self):
         if self.type is None:
             self.shape = cv2.circle(self.shape, (512,512), 512, self._getBGR(self.color), -1)
             #self.mask = cv2.cvtColor(self.shape,cv2.COLOR_BGRA2GRAY)
+        self.icon = cv2.resize(self.shape,(self.size_,self.size_))
         pass
     
     def setColor(self,color):
@@ -54,11 +55,12 @@ class Brush(QObject):
     
     def setSize(self,size):
         self.size_ = size
+        self.initShape()
     
     def changeColorFromBGR(self,BGR):
         b,g,r = BGR
         self.color = QColor(r,g,b)
-        print(self.color.name())
+        #print(self.color.name())
         self.initShape()
     
     def getColor(self):
@@ -100,7 +102,7 @@ class Draw(QLabel):
     #fill_signal = pyqtSignal(tuple)
     color_signal = pyqtSignal([int,int,int])
     send_signal = pyqtSignal(dict)
-    typechanged = pyqtSignal(list)
+    typechanged = pyqtSignal(dict)
     def __init__(self,debug=False):
         super(Draw,self).__init__()
         self.setAutoFillBackground(True)
@@ -123,6 +125,9 @@ class Draw(QLabel):
         self._flag = False
         self.type = None
     
+    def setScale(self,scale):
+        self.__scale = scale
+    
     def __str_to_RGB(self,s):
         # This is a translation fuction from string of hex like to RGB values.
         s = [int(c.upper(),16) for c in s]
@@ -137,7 +142,7 @@ class Draw(QLabel):
     def getCenterOfCanvas(self):
         # Return the center coordinate of this canvas, 
         # it has been used in coordinate transformation.
-        print(self.width(),self.height())
+        #print(self.width(),self.height())
         return ((self.width()+1)//2,(self.height()+1)//2)
     
     def chgType(self,tp):
@@ -146,9 +151,9 @@ class Draw(QLabel):
         self.type = tp
         if self.type == 'Vary':
             self._flag = True
-            self.typechanged.emit([])
         else:
             self._flag = False
+        self.typechanged.emit({'type':self.type,'content':None})
         '''
         if self.type in ['Line','Rect','Circle']:
             self.setMouseTracking(True)
@@ -171,7 +176,7 @@ class Draw(QLabel):
         #self.painter.setRenderHint(QPainter.Antialiasing, True)
         if not self.painter.isActive():
             self.painter.begin(self)
-        self.pen = QPen(self.pencolor, self.thickness, self.linestyle)
+        self.pen = QPen(self.pencolor, self.thickness*self.__scale, self.linestyle)
         self.painter.setPen(self.pen)
         if self.type == 'Pencil':
             if len(self.pos_xy) > 1:
@@ -250,7 +255,7 @@ class Draw(QLabel):
         elif self.type == 'Vary':
             self.point_start = self.transform((event.pos().x(), event.pos().y()))
             self.point_end = self.transform((event.pos().x(), event.pos().y()))
-            self.typechanged.emit([self.point_start])
+            self.typechanged.emit({'type':'Vary','content':self.point_start})
             #self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
         elif self.type == 'Brush':
             self.send_signal.emit({'mode':'Brush','type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
@@ -328,14 +333,14 @@ class Draw(QLabel):
         self.point_start = (-1,-1)
         self.point_end = (-1,-1)
     
-    def setScale(self,scale):
-        self.__scale = scale
-    
     def setRealSize(self,w,h):
         self.__width,self.__height = self.width(),self.height()
     
     def transform(self,pos):
         return (int(pos[0]/self.__scale),int(pos[1]/self.__scale))
+    
+    def transformT(self,pos):
+        return (int(pos[0]*self.__scale),int(pos[1]*self.__scale))
     
     def resizeSelf(self,w,h):
         # Reset the size of canvas
@@ -533,11 +538,18 @@ class CanvasScroll(QScrollArea):
         self.setContentsMargins(50,50,50,50)
         self.start_pos = (-1,-1)
         self.end_pos = (-1,-1)
+        self.is_show = False
         self.hor = self.horizontalScrollBar()
         self.ver = self.verticalScrollBar()
     
     def draw(self,rect):
         self._rect = rect
+    
+    def showRect(self):
+        self.is_show = True
+    
+    def notShowRect(self):
+        self.is_show = False
     
     def setContentScale(self,scale):
         self.last_scale = self.content_scale
@@ -562,7 +574,7 @@ class CanvasScroll(QScrollArea):
             logger.debug(str(centerX)+','+str(centerY)+','+str(self.disX)+','+str(self.disY)+','+str(self.content_scale)+','+str(self.last_scale))
             logger.debug(str(centerX + int(self.disX*self.content_scale/self.last_scale))+','+str(centerY + int(self.disY*self.content_scale/self.last_scale)))
         self.ensureVisible(*self.getCenterPosition())
-        
+        '''
     def mousePressEvent(self,event):
         super().mousePressEvent(event)
         self.currentPosition = (event.pos().x(),event.pos().y())
@@ -586,33 +598,34 @@ class CanvasScroll(QScrollArea):
         self.end_pos = (event.pos().x(), event.pos().y())
         self.hor.setValue(self.hVal - self.end_pos[0] + self.start_pos[0])
         self.ver.setValue(self.vVal - self.end_pos[1] + self.start_pos[1])
-        
+        '''
     def paintEvent(self,event):
         # There overload the paintEvent Function, 
         # different drawing according to different flags,
         # it just shows to the user.
         super().paintEvent(event)
-        self.painter = QPainter(self.viewport())
-        #self.painter.setRenderHint(QPainter.Antialiasing, True)
-        if not self.painter.isActive():
-            self.painter.begin(self)
-        self.pen = QPen(QColor('black'), 1, Qt.SolidLine)
-        self.painter.setPen(self.pen)
-        print(self._rect)
-        w, h = self._rect[2] - self._rect[0], self._rect[3] - self._rect[1]
-        self.painter.drawRect(self._rect[0],self._rect[1],w,h)
-        self.painter.drawRect(self._rect[0] - 3,self._rect[1] - 3,7,7)
-        self.painter.drawRect(self._rect[2] - 3,self._rect[1] - 3,7,7)
-        self.painter.drawRect(self._rect[0] - 3,self._rect[3] - 3,7,7)
-        self.painter.drawRect(self._rect[2] - 3,self._rect[3] - 3,7,7)
-        self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[1] - 3,7,7)
-        self.painter.drawRect(self._rect[0] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
-        self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[3] - 3,7,7)
-        self.painter.drawRect(self._rect[2] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
-        self.painter.drawEllipse((self._rect[0] + self._rect[2])//2 - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
-        self.painter.drawLine((self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 - 5,(self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 + 5)
-        self.painter.drawLine((self._rect[0] + self._rect[2])//2 - 5,(self._rect[1] + self._rect[3])//2,(self._rect[0] + self._rect[2])//2 + 5,(self._rect[1] + self._rect[3])//2)
-        self.painter.end()
+        if self.is_show:
+            self.painter = QPainter(self.viewport())
+            #self.painter.setRenderHint(QPainter.Antialiasing, True)
+            if not self.painter.isActive():
+                self.painter.begin(self)
+            self.pen = QPen(QColor('black'), 1, Qt.SolidLine)
+            self.painter.setPen(self.pen)
+            #print(self._rect)
+            w, h = self._rect[2] - self._rect[0], self._rect[3] - self._rect[1]
+            self.painter.drawRect(self._rect[0],self._rect[1],w,h)
+            self.painter.drawRect(self._rect[0] - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[2] - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[0] - 3,self._rect[3] - 3,7,7)
+            self.painter.drawRect(self._rect[2] - 3,self._rect[3] - 3,7,7)
+            self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[1] - 3,7,7)
+            self.painter.drawRect(self._rect[0] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+            self.painter.drawRect((self._rect[0] + self._rect[2])//2 - 3,self._rect[3] - 3,7,7)
+            self.painter.drawRect(self._rect[2] - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+            self.painter.drawEllipse((self._rect[0] + self._rect[2])//2 - 3,(self._rect[1] + self._rect[3])//2 - 3,7,7)
+            self.painter.drawLine((self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 - 5,(self._rect[0] + self._rect[2])//2,(self._rect[1] + self._rect[3])//2 + 5)
+            self.painter.drawLine((self._rect[0] + self._rect[2])//2 - 5,(self._rect[1] + self._rect[3])//2,(self._rect[0] + self._rect[2])//2 + 5,(self._rect[1] + self._rect[3])//2)
+            self.painter.end()
 
 class Canvas(QWidget):
     """
@@ -657,7 +670,7 @@ class Canvas(QWidget):
         self.layers.layNum_signal[int].connect(self.chgLayerImage)
         self.layers.changeImg(self.layers.Image)
         self.draw.send_signal[dict].connect(self.taskDistribution)
-        self.draw.typechanged[list].connect(self.varyInit)
+        self.draw.typechanged[dict].connect(self.toolsInit)
         #self.draw.drop_signal[tuple].connect(self.dropColor)
         #self.draw.fill_signal[tuple].connect(self.fillColor)
     
@@ -665,7 +678,7 @@ class Canvas(QWidget):
         return ((self.scroll.width()+1)//2, (self.scroll.height()+1)//2)
     
     def getPosition(self,pos):
-        print(self.getCenterPoint(), self.draw.getCenterOfCanvas())
+        #print(self.getCenterPoint(), self.draw.getCenterOfCanvas())
         x,y = self.getCenterPoint()[0] - self.draw.getCenterOfCanvas()[0] + pos[0], self.getCenterPoint()[1] - self.draw.getCenterOfCanvas()[1] + pos[1]
         return (x,y)
     
@@ -679,17 +692,25 @@ class Canvas(QWidget):
             self.scroll.hor.setValue(hVal)
             self.scroll.ver.setValue(vVal)
     
-    def varyInit(self,tmp):
-        if tmp == []:
-            pass
-        else:
-            self.changeRow.emit(self.layers.autoSelectClickedLayer(tmp[0]))
-        x1,y1,x2,y2 = self.layers.getRectOfImage()
-        self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-        self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-        self.draw.repaint()
-        self.scroll.draw(self._rect)
+    def toolsInit(self,content):
+        _type = content['type']
+        self.scroll.notShowRect()
         self.scroll.repaint()
+        if _type == 'Vary':
+            self.scroll.showRect()
+            if content['content'] is not None:
+                self.changeRow.emit(self.layers.autoSelectClickedLayer(content['content']))
+            x1,y1,x2,y2 = self.layers.getRectOfImage()
+            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            self.draw.repaint()
+            self.scroll.draw(self._rect)
+            self.scroll.repaint()
+        elif _type == 'Move':
+            pass
+        elif _type == 'Brush':
+            self.brush.setSize(self.draw.thickness)
+        self.chgCursor(_type)
     
     def taskDistribution(self,content):
         if self.__debug:
@@ -732,6 +753,7 @@ class Canvas(QWidget):
                 self.scale = 100.0
             else:
                 self.scale -= 0.5*self.scale
+        self.draw.setScale(self.scale/100.0)
         self.scroll.setContentScale(self.scale/100.0)
         self.imgOperate()
     
@@ -809,7 +831,9 @@ class Canvas(QWidget):
     
     def dropColor(self,pos):
         #pos = ops.cvtCanPosAndLayerPos(pos,(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
-        [b,g,r] = self.layers.Image[pos[1],pos[0]]
+        if self.layers.mask[pos[1],pos[0]] == 0:
+            return
+        [b,g,r,_] = self.layers.Image[pos[1],pos[0]]
         self.draw.changeBlockColor(b,g,r)
         
     def fillColor(self,pos,color,r=50):
@@ -880,7 +904,11 @@ class Canvas(QWidget):
         elif tar == 'Fill':
             self.setCursor(QCursor(QPixmap('./UI/fill-drip.png'),0,0))
         elif tar == 'Brush':
-            self.setCursor(QCursor(self.brush.icon))
+            self.setCursor(QCursor(ops.cvtCV2PixmapAlpha(self.brush.icon)))
+        elif tar == 'Vary':
+            self.setCursor(Qt.SizeAllCursor)
+        elif tar == 'Move':
+            self.setCursor(Qt.OpenHandCursor)
         else:
             self.setCursor(Qt.ArrowCursor)
             

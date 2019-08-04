@@ -477,7 +477,7 @@ class LayerStack(QObject):
         self.Image,self.mask = self.__getVisibleArea(self.layer[0])
         #self.Image = self.background
         #cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
-        print(len(self.layer))
+        #print(len(self.layer))
         for i in range(1,len(self.layer)):
             tmp = self.Image
             self.Image,mask = self.__mix(self.layer[i],i)

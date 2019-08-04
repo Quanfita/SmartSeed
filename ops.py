@@ -54,6 +54,8 @@ def cvtImage2Pixmap(image):
     return QPixmap.fromImage(image)
 
 def cvtCV2Pixmap(cvimg):
+    if len(cvimg.shape) < 3:
+        cvimg = cv2.cvtColor(cvimg,cv2.COLOR_GRAY2BGR)
     tmp = cvtCV2Image(cvimg)
     return QPixmap.fromImage(tmp)
 
