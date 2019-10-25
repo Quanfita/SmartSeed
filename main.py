@@ -77,4 +77,5 @@ class main:
         del self.progress
 
 if __name__ == '__main__':
-    main(debug=True)
+    #main(debug=True)
+    main(debug=False)

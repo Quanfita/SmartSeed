@@ -16,7 +16,7 @@ class ImgObject(object):
         self.__debug = debug
         self.__layerName = ''
         self._rect = None
-        self.opacity = 1.0
+        self.__opacity = 1.0
         if img.shape[2] == 3:
             img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
         elif img.shape[2] == 1:
@@ -24,56 +24,78 @@ class ImgObject(object):
         self.Image = img
         self.__realImage = img
         self._offset = (0,0)
-        self.icon = ops.cvtCV2PixmapAlpha(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255]))
+        self.__icon = ops.cvtCV2PixmapAlpha(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255]))
         
-        self.mask = self.Image[:,:,3]
+        self.__mask = self.Image[:,:,3]
         self.__width, self.__height = self.__realImage.shape[1],self.__realImage.shape[0]
         self.__pixNum = self.__width * self.__height
         self.__hasHiddenLayer = False
         self.__posOnCanvas = (-1,-1)
     
-    def setMask(self,mask):
-        self.mask = self.Image[:,:,3] = mask
-        
-    def setOffset(self,val):
+    @property
+    def mask(self):
+        return self.__mask
+    
+    @mask.setter
+    def mask(self, mask):
+        self.__mask = self.Image[:,:,3] = mask
+
+    @property
+    def offset(self):
+        return self._offset
+
+    @offset.setter
+    def offset(self, val):
         self._offset = (self._offset[0] - val[0],self._offset[1] - val[1])
     
-    def getOffset(self):
-        return self._offset
-    
-    def getLayerName(self):
+    @property
+    def layerName(self):
         return self.__layerName
-    
-    def setLayerOpacity(self,opacity):
-        self.opacity = opacity
-        
-    def getlayerOpacity(self):
-        return self.opacity
-    
-    def setImageRect(self,rect):
-        self._rect = rect
-    
-    def getImageRect(self):
-        return self._rect
-    
-    def setLayerName(self,name):
-        self.__layerName = name
+
+    @layerName.setter
+    def layerName(self, layerName):
+        self.__layerName = layerName
         if self.__debug:
             logger.debug('Set layer name:'+self.__layerName)
     
-    def getIcon(self):
-        return self.icon
+    @property
+    def opacity(self):
+        return self.__opacity
+    
+    @opacity.setter
+    def opacity(self, opacity):
+        self.__opacity = opacity
+    
+    @property
+    def imageRect(self):
+        return self._rect
+    
+    @imageRect.setter
+    def imageRect(self, rect):
+        self._rect = rect
+    
+    @property
+    def layer(self):
+        return self._layer
+    
+    @property
+    def icon(self):
+        return self.__icon
+    
+    @icon.setter
+    def icon(self, icon):
+        self.__icon = icon
     
     def getImage(self):
         return self.Image
     
-    def changeImg(self,img):
+    def changeImg(self, img):
         if img.shape[2] == 3:
             img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
         elif img.shape[2] == 1:
             img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGRA)
         self.Image = img
-        self.icon = ops.cvtCV2PixmapAlpha(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255]))
+        self.__icon = ops.cvtCV2PixmapAlpha(cv2.copyMakeBorder(cv2.resize(img,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255]))
         self.__width = self.__realImage.shape[1]
         self.__height = self.__realImage.shape[0]
         if self.hasHiddenLayer():
@@ -130,7 +152,7 @@ class ImgObject(object):
             fg = cv2.bitwise_and(self.hiddenLayer,self.hiddenLayer,mask = self.hiddenMask)
             bg = cv2.bitwise_and(self.Image,self.Image,mask = mask_inv)
             self.Image = cv2.add(bg,fg)
-            self.mask = cv2.bitwise_or(self.hiddenMask,self.mask)
+            self.__mask = cv2.bitwise_or(self.hiddenMask,self.__mask)
 
 class LayerStack(QObject):
     signal = pyqtSignal()
@@ -139,7 +161,7 @@ class LayerStack(QObject):
     def __init__(self,init=None,debug=False):
         super().__init__()
         self.__debug = debug
-        self.name = 'layer-1'
+        self.__name = 'layer-1'
         self.selectedLayerIndex = 0
         self.layer = []
         self.layer_names = []
@@ -172,12 +194,12 @@ class LayerStack(QObject):
         self.pixNum = self.__width * self.__height
         tmp_layer = ImgObject(self.Image)
         tmp_layer.setPositionOnCanvas(((self.__width+1)//2,(self.__height+1)//2))
-        tmp_layer.setLayerName(self.name)
+        tmp_layer.layerName = self.__name
         if self.__opacity == 0:
             self.Image = self.background
-            tmp_layer.setLayerOpacity(0.0)
+            tmp_layer.layerOpacity = 0.0
         self.tmp_img = self.Image
-        self.layer_names.append(self.name)
+        self.layer_names.append(self.__name)
         self.layer.insert(0,tmp_layer)
         self.mix_list.insert(0,'Normal')
         self.__remix()
@@ -243,17 +265,19 @@ class LayerStack(QObject):
         #mask[point_sy:(point_sy+min(img_h, self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = 255
         x1, y1 = img.getPositionOnCanvas()[0] - img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] - img.getCenterOfImage()[1]
         x2, y2 = img.getPositionOnCanvas()[0] + img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] + img.getCenterOfImage()[1]
-        img.setImageRect((x1,y1,x2,y2))
+        img.imageRect = (x1,y1,x2,y2)
         if self.__debug:
             logger.debug('Visible area:'+str((point_sx,point_sy,min(img_w,self.__width),min(img_h,self.__height))))
         return tmp,mask
     
-    def setName(self,name):
-        self.name = name
-        
-    def getName(self):
-        return self.name
+    @property
+    def name(self):
+        return self.__name
     
+    @name.setter
+    def name(self, name):
+        self.__name = name
+
     def addLayer(self,idx,name,img=None):
         if img is None:
             img = np.zeros((self.__height,self.__width,4),dtype=np.uint8)
@@ -274,7 +298,7 @@ class LayerStack(QObject):
         '''
         tmp_layer = ImgObject(img)
         tmp_layer.setPositionOnCanvas(((self.__width+1)//2,(self.__height+1)//2))
-        tmp_layer.setLayerName(name)
+        tmp_layer.layerName = name
         self.layer_names.append(name)
         self.layer.insert(idx,tmp_layer)
         self.mix_list.insert(idx,'Normal')
@@ -474,17 +498,21 @@ class LayerStack(QObject):
         
     
     def __remix(self):
-        self.Image,self.mask = self.__getVisibleArea(self.layer[0])
+        self.Image,self.__mask = self.__getVisibleArea(self.layer[0])
         #self.Image = self.background
         #cv2.imwrite('./tmp_bottom.jpg',self.layer[0].Image)
         #print(len(self.layer))
         for i in range(1,len(self.layer)):
             tmp = self.Image
             self.Image,mask = self.__mix(self.layer[i],i)
-            self.mask = np.bitwise_or(self.mask,mask)
+            self.__mask = np.bitwise_or(self.__mask,mask)
             self.Image = cv2.addWeighted(self.Image,self.layer[i].opacity,tmp,1 - self.layer[i].opacity,0)
         #cv2.imwrite('error.jpg',self.Image)
         self.signal.emit()
+
+    @property
+    def mask(self):
+        return self.__mask
     
     def updateImg(self):
         self.__remix()

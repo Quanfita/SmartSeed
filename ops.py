@@ -11,6 +11,33 @@ import numpy as np
 import cv2
 from PIL import Image
 
+def imread(imagename):
+    tag = imagename.split('.')[-1]
+    if tag in ['jpg', 'jpeg', 'jpe', 'jfif']:
+        _type = 'JPEG'
+    img = cv2.imread(imagename,cv2.IMREAD_UNCHANGED)
+    if not img:
+        raise Exception("Error! Image cannot be read...")
+    if len(img.shape) < 3:
+        if len(img.shape) == 2:
+            img = cv2.merge([img, img, img, np.ones(img.shape, dtype=np.uint8)*255])
+        else:
+            raise Exception("ShapeError: Image shape is not right.")
+    elif len(img.shape) == 3:
+        if img.shape[2] == 3:
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+        elif img.shape[2] == 4:
+            pass
+        else:
+            raise Exception("ShapeError: Image shape is not right.")
+    else:
+        raise Exception("ShapeError: Image shape is not right.")
+    return img
+
+def imsave(image, imagename, depth=8, dpi=72.0, quanlity=80):
+    img = Image.fromarray(cv2.cvtColor(image,cv2.COLOR_BGRA2RGBA))
+    img.save(imagename, dpi=(dpi,dpi), quanlity=quanlity)
+
 def cvtPixmap2Image(pixmap):
     return pixmap.toImage()
 

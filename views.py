@@ -650,13 +650,13 @@ class Canvas(QWidget):
         self.scroll.setWidget(self.draw)
         settings = QSettings("tmp.ini", QSettings.IniFormat)
         if settings.value('mode') == 1:
-            img = cv2.imread(settings.value('imagePath'))
+            img = ops.imread(settings.value('imagePath'))
             self.canvasName = settings.value('imageName')
             self.layers = LayerStack(img,debug=self.__debug)
-            self.layers.setName(self.canvasName)
+            self.layers.name = self.canvasName
         else:
             self.layers = LayerStack(debug=self.__debug)
-            self.layers.setName(self.canvasName)
+            self.layers.name = self.canvasName
         self.dpi = int(settings.value('dpi'))
         self.draw.resize(*self.layers.ImgInfo())
         self.vbox = QVBoxLayout()
@@ -811,8 +811,8 @@ class Canvas(QWidget):
     def draw_2Pix(self,mode,start,end,pencolor,thick,brush):
         #print(mode,start,end,pencolor,thick,brush)
         imgObj = self.layers.layer[self.layer_idx]
-        start = ops.cvtCanPosAndLayerPos(start,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.getOffset())
-        end = ops.cvtCanPosAndLayerPos(end,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.getOffset())
+        start = ops.cvtCanPosAndLayerPos(start,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.offset)
+        end = ops.cvtCanPosAndLayerPos(end,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.offset)
         #print(start,end)
         if mode == 'Line':
             cv2.line(self.layers.tmp_img,start,end,pencolor,thick)
@@ -841,7 +841,7 @@ class Canvas(QWidget):
         if self.__debug:
             logger.debug('Position:'+str(pos)+', color:'+str(color)+', r:'+str(r))
         imgObj = self.layers.layer[self.layer_idx]
-        (x,y) = ops.cvtCanPosAndLayerPos((pos[0],pos[1]),(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.getOffset())
+        (x,y) = ops.cvtCanPosAndLayerPos((pos[0],pos[1]),(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.offset)
         if self.layers.isPositionOutOfLayer((x,y)):
             return
         [b,g,r,_] = self.layers.tmp_img[y,x]
@@ -858,9 +858,9 @@ class Canvas(QWidget):
     def draw_NPix(self,pos_list,thick,color):
         imgObj = self.layers.layer[self.layer_idx]
         if pos_list:
-            tmp = ops.cvtCanPosAndLayerPos(pos_list[0],(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.getOffset())
+            tmp = ops.cvtCanPosAndLayerPos(pos_list[0],(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.offset)
             for pos in pos_list:
-                pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.getOffset())
+                pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),self.draw.getCenterOfCanvas(),imgObj.offset)
                 cv2.line(self.layers.tmp_img,tmp,pos,color[0],thick)
                 tmp = pos
                 #cv2.circle(self.layers.tmp_img,pos,thick,color[0],-1)
@@ -1398,7 +1398,7 @@ class Welcome(QDialog):
         # and save these information into tmp.ini.
         imgName,imgType = QFileDialog.getOpenFileName(self,"打开图片","",
                                                      " *.jpg;;*.png;;*.jpeg;;*.bmp;;All Files (*)")
-        if imgName is '':
+        if not imgName:
             logger.warning('None Image has been selected!')
             return
         else:
@@ -1833,11 +1833,11 @@ class LayerMain(QWidget):
                 font = QFont()
                 font.setPointSize(10)
                 tmp_item = QListWidgetItem(self.layer_list)
-                tmp_item.setIcon(QIcon(item.getIcon()))
+                tmp_item.setIcon(QIcon(item.icon))
                 tmp_item.setFont(font)
-                if item.getLayerName() == '':
-                    item.setLayerName('layer-1')
-                tmp_item.setText(item.getLayerName())
+                if not item.layerName:
+                    item.layerName = 'layer-1'
+                tmp_item.setText(item.layerName)
                 tmp_item.setTextAlignment(Qt.AlignCenter)
                 self.layer_list.insertItemSlot(0,tmp_item)
                 #self.check()
@@ -1892,7 +1892,7 @@ class LayerMain(QWidget):
             lsize = len(self.layer_list)
             if self.__debug:
                 logger.debug('current item:'+str(cur)+', index:'+str(ind)+', total length:'+str(lsize))
-            cur.setIcon(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].getIcon()))
+            cur.icon = QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].icon)
         except Exception as e:
             logger.error('There is an error:'+str(e))
     
@@ -1907,8 +1907,8 @@ class LayerMain(QWidget):
             self.tab_canvas.canvas.layers.addLayer(lsize - ind,name,img)
             if self.__debug:
                 logger.debug('Add Layer to:'+str(lsize-ind)+', view index:'+str(ind)+', name:'+name+', total '+str(len(self.tab_canvas.canvas.layers.layer))+' layers.')
-                logger.debug([x.getLayerName() for x in self.tab_canvas.canvas.layers.layer])
-            self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind].getIcon()),ind,name)
+                logger.debug([x.layerName for x in self.tab_canvas.canvas.layers.layer])
+            self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind].icon),ind,name)
             self.layer_list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
             self.refresh.emit()
         except Exception as e:
@@ -1966,7 +1966,7 @@ class LayerMain(QWidget):
                 logger.debug('Select layer index:'+str(lsize-ind-1)+', lsize:'+str(lsize)+', ind:'+str(ind))
             self.mix_combox.setCurrentText(self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1])
             self.tab_canvas.canvas.layers.sltLayer(lsize - ind - 1)
-            self.tab_canvas.canvas.draw.setImageRect(self.tab_canvas.canvas.layers.currentImageObject().getImageRect())
+            self.tab_canvas.canvas.draw.setImageRect(self.tab_canvas.canvas.layers.currentImageObject().imageRect)
             self.tab_canvas.canvas.draw.redraw()
             if ind  == lsize - 1:
                 self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1] = 'Normal'
