@@ -40,8 +40,7 @@ class MainWindow(QMainWindow):
         #super().__init__()
         super(MainWindow,self).__init__()
         self.__debug = debug
-        self.setStyleSheet(''
-                            'QMainWindow{color:white;background-color:#424242;}'
+        self.setStyleSheet( 'QMainWindow{color:white;background-color:#424242;}'
                             'QTabWidget::pane{color:white;border:3px solid #535353;padding:0px;}'
                             'QTabBar::pane{color:white;background-color:#535353;border:1px solid #424242;}'
                             'QTabBar::tab{color:white;background-color:#535353;border:1px solid #424242;border-bottom:0px;padding:0px;margin-top:1px;width:100px;height:25px;}'
@@ -56,7 +55,7 @@ class MainWindow(QMainWindow):
                             'QToolBar::item{color:white;background-color:transparent;}'
                             'QToolBar::separator{background-color:#535353;margin:3px;}'
                             'QStatusBar{color:white;background-color:#535353;border:2px solid #424242;border-radius:3px;}')
-        self.OS = OpStack()
+        # self.OS = OpStack()
         #self.setMouseTracking(False)
         self.pos_xy = []
         #self.mcanvas.canvas = Canvas()
@@ -595,7 +594,7 @@ class MainWindow(QMainWindow):
         
         if self.mcanvas.canvas.layers.Image.size == 1:
             return
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
         self.info_lb.setText(self.info)
         self.refreshShow()
         #self.center()
@@ -633,7 +632,7 @@ class MainWindow(QMainWindow):
         
         if self.mcanvas.canvas.layers.Image.size == 1:
             return
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'openimage'])
         self.info_lb.setText(self.info)
         self.refreshShow()
         #self.center()
@@ -696,7 +695,7 @@ class MainWindow(QMainWindow):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'filter','other':tableName})
         #self.showDialog(1)
         logger.info("Doing Filters Successful!")
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'doFilters'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'doFilters'])
         self.refreshShow()
         #self.doFilters(tableName)
     
@@ -706,7 +705,7 @@ class MainWindow(QMainWindow):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'AWB'})
         #self.showDialog(1)
         logger.info("AWB Successful!")
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'AWB'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'AWB'])
         self.refreshShow()
         
     def ACE(self):
@@ -715,7 +714,7 @@ class MainWindow(QMainWindow):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'ACE'})
         #self.showDialog(1)
         logger.info('ACE Successful!')
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACE'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACE'])
         self.refreshShow()
         
     def ACA(self):
@@ -724,35 +723,37 @@ class MainWindow(QMainWindow):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'ACA'})
         #self.showDialog(1)
         logger.info('ACA Successful!')
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACA'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'ACA'])
         self.refreshShow()
     
     def Undo(self):
-        if self.OS.isEmpty():
-            logger.warning('No Operating Should Be Undo!')
-            return
-        else:
-            self.OS.re_push(self.OS.pop())
-            if self.OS.isEmpty():
-                logger.warning('No Operating Should Be Undo!')
-                return
-            else:
-                [img,op] = self.OS.peek()
-                self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
-                #self.label.Clean()
-                logger.info('Undo Operating to '+op+'!')
-                self.refreshShow()
+        pass
+        # if self.OS.isEmpty():
+        #     logger.warning('No Operating Should Be Undo!')
+        #     return
+        # else:
+        #     self.OS.re_push(self.OS.pop())
+        #     if self.OS.isEmpty():
+        #         logger.warning('No Operating Should Be Undo!')
+        #         return
+        #     else:
+        #         [img,op] = self.OS.peek()
+        #         self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
+        #         #self.label.Clean()
+        #         logger.info('Undo Operating to '+op+'!')
+        #         self.refreshShow()
     
     def Redo(self):
-        if self.OS.re_isEmpty():
-            logger.warning('No Operating Should Be Redo!')
-            return
-        else:
-            self.OS.push(self.OS.re_pop())
-            [img,op] = self.OS.peek()
-            self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
-            logger.info('Redo Operating to ' + op + '!')
-        self.refreshShow()
+        pass
+        # if self.OS.re_isEmpty():
+        #     logger.warning('No Operating Should Be Redo!')
+        #     return
+        # else:
+        #     self.OS.push(self.OS.re_pop())
+        #     [img,op] = self.OS.peek()
+        #     self.mcanvas.canvas.layers.changeImg(img.astype(np.uint8))
+        #     logger.info('Redo Operating to ' + op + '!')
+        # self.refreshShow()
     
     def disPre(self):
         if self.last_tool == 'Pencil':
@@ -806,7 +807,7 @@ class MainWindow(QMainWindow):
     
     def Anime(self):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'Anime','other':'./samples/2.jpg'})
-        self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'Anime'])
+        # self.OS.push([np.array(self.mcanvas.canvas.layers.Image),'Anime'])
         logger.info('Do Anime Filter Successful!')
         self.refreshShow()
     
@@ -874,62 +875,62 @@ class MainWindow(QMainWindow):
     
     def Paint(self):
         self.sentSignalToThread({'img':self.mcanvas.canvas.layers.currentLayer(),'method':'Painter'})
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Paint'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Paint'])
         logger.info('Do Anime Painter Successful!')
         self.refreshShow()
     
     def Ink(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Ink'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Ink'])
         logger.info('Do Ink Style Transfer Successful!')
         self.refreshShow()
     
     def PencilDrawing(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'PencilDrawing'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'PencilDrawing'])
         logger.info('Do Pencil Drawing Successful!')
         self.refreshShow()
     
     def Blur(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Blur'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'Blur'])
         logger.info('Do Blur Successful!')
         self.refreshShow()
     
     def GaussianBlur(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'GaussianBlur'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'GaussianBlur'])
         logger.info('Do Gaussian Blur Successful!')
         self.refreshShow()
     
     def MotionBlur(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'MotionBlur'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'MotionBlur'])
         logger.info('Do Motion Blur Successful!')
         self.refreshShow()
     
     def RadialBlur(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'RadialBlur'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'RadialBlur'])
         logger.info('Do Radial Blur Successful!')
         self.refreshShow()
     
     def SmartBlur(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartBlur'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartBlur'])
         logger.info('Do Smart Blur Successful!')
         self.refreshShow()
     
     def BlurMore(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'BlurMore'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'BlurMore'])
         logger.info('Do More Blur Successful!')
         self.refreshShow()
     
     def USM(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'USM'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'USM'])
         logger.info('Do USM Successful!')
         self.refreshShow()
     
     def EdgeSharp(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'EdgeSharp'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'EdgeSharp'])
         logger.info('Do Edge Sharp Successful!')
         self.refreshShow()
     
     def SmartSharp(self):
-        self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartSharp'])
+        # self.OS.push([np.array(self.mcanvas.canvas.tmp_img.Image),'SmartSharp'])
         logger.info('Do Smart Sharp Successful!')
         self.refreshShow()
     

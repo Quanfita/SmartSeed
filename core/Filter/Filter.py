@@ -4,8 +4,11 @@ Created on Fri Jan 25 13:56:28 2019
 
 @author: Quanfita
 """
+from common.singleton import SingletonIns
 import numpy as np
 import cv2
+
+@SingletonIns
 class Filter(object):
     def findPos(self,point,ori):
         l = []

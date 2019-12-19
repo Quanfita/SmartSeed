@@ -7,16 +7,19 @@ Created on Tue Jan 29 17:42:25 2019
 
 from PyQt5.QtWidgets import QApplication,QDialog,QProgressDialog,QWidget
 from PyQt5.QtCore import pyqtSignal,Qt
-import sys
-import time
-import platform
-import logger
-from Thread import ProThread
+from common.app import logger
+# from Thread import ProThread
 from app import MainWindow
 from views import Welcome
+
+import sys
+import os
+import time
+import platform
+
 sys.setrecursionlimit(5000)
-#import warnings
-#warnings.filterwarnings('ignore')
+import warnings
+warnings.filterwarnings('ignore')
 
 class main:
     def __init__(self,debug=False):
@@ -77,5 +80,5 @@ class main:
         del self.progress
 
 if __name__ == '__main__':
-    #main(debug=True)
+    # main(debug=True)
     main(debug=False)

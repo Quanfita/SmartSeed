@@ -28,6 +28,18 @@ class ProThread(QThread):
         super(ProThread, self).__init__()
         self.debug = debug
         self.tmp_img = None
+        self.task_dict = {
+                        'filter': self.doFilter,
+                        'AWB': AWB,
+                        'ACE': ACE().zmIceColor,
+                        'ACA': ACA,
+                        'Anime': Sit2Anime('./tables').DoProcess,
+                        'Painter': "",
+                        'Ink': Ink().ink,
+                        "USM": Sharp.USM,
+                        "EdgeSharp": Sharp.EdgeSharp,
+                        "SmartSharp": Sharp.SmartSharp,
+                    }
         self.content = ''
         self.target = ''
  
@@ -45,42 +57,45 @@ class ProThread(QThread):
         if self.debug:
         	t = time.time()
         	logger.debug('Start do '+ self.target+'.')
-        if self.target == 'filter':
-            self.doFilter()
-        elif self.target == 'AWB':
-            self.AWB()
-        elif self.target == 'ACE':
-            self.ACE()
-        elif self.target == 'ACA':
-            self.ACA()
-        elif self.target == 'Anime':
-            self.Anime()
-        elif self.target == 'Painter':
-            self.Paint()
-        elif self.target == 'Ink':
-            self.Ink()
-        elif self.target == 'Pencil':
-            self.Pencil()
-        elif self.target == 'Blur':
-            self.blur()
-        elif self.target == 'BlurMore':
-            self.BlurMore()
-        elif self.target == 'GaussianBlur':
-            self.GaussianBlur()
-        elif self.target == 'MotionBlur':
-            self.MotionBlur()
-        elif self.target == 'RadialBlur':
-            self.RadialBlur()
-        elif self.target == 'SmartBlur':
-            self.SmartBlur()
-        elif self.target == 'USM':
-            self.USM()
-        elif self.target == 'EdgeSharp':
-            self.EdgeSharp()
-        elif self.target == 'SmartSharp':
-            self.SmartSharp()
-        else:
-            return
+
+        self.task_dict[self.target](self.tmp_img)
+
+        # if self.target == 'filter':
+        #     self.doFilter()
+        # elif self.target == 'AWB':
+        #     self.AWB()
+        # elif self.target == 'ACE':
+        #     self.ACE()
+        # elif self.target == 'ACA':
+        #     self.ACA()
+        # elif self.target == 'Anime':
+        #     self.Anime()
+        # elif self.target == 'Painter':
+        #     self.Paint()
+        # elif self.target == 'Ink':
+        #     self.Ink()
+        # elif self.target == 'Pencil':
+        #     self.Pencil()
+        # elif self.target == 'Blur':
+        #     self.blur()
+        # elif self.target == 'BlurMore':
+        #     self.BlurMore()
+        # elif self.target == 'GaussianBlur':
+        #     self.GaussianBlur()
+        # elif self.target == 'MotionBlur':
+        #     self.MotionBlur()
+        # elif self.target == 'RadialBlur':
+        #     self.RadialBlur()
+        # elif self.target == 'SmartBlur':
+        #     self.SmartBlur()
+        # elif self.target == 'USM':
+        #     self.USM()
+        # elif self.target == 'EdgeSharp':
+        #     self.EdgeSharp()
+        # elif self.target == 'SmartSharp':
+        #     self.SmartSharp()
+        # else:
+        #     return
         if self.debug:
         	logger.debug('Process time:'+str(time.time() - t)+'.')
         self.pro_signal.emit({'img':self.tmp_img})
@@ -91,46 +106,46 @@ class ProThread(QThread):
         self.tmp_img = Filter().myFilter(ori,new,self.tmp_img)
         return
     
-    def AWB(self):
-        self.tmp_img = AWB(self.tmp_img)
-        return
+    # def AWB(self):
+    #     self.tmp_img = AWB(self.tmp_img)
+    #     return
     
-    def ACE(self):
-        self.tmp_img = ACE().zmIceColor(self.tmp_img)
-        return
+    # def ACE(self):
+    #     self.tmp_img = ACE().zmIceColor(self.tmp_img)
+    #     return
     
-    def ACA(self):
-        self.tmp_img = ACA(self.tmp_img)
+    # def ACA(self):
+    #     self.tmp_img = ACA(self.tmp_img)
     
-    def Anime(self):
-        #sky = cv2.imread(self.content)
-        self.tmp_img = Sit2Anime('./tables').DoProcess(self.tmp_img)
-        return
+    # def Anime(self):
+    #     #sky = cv2.imread(self.content)
+    #     self.tmp_img = Sit2Anime('./tables').DoProcess(self.tmp_img)
+    #     return
     
     def Paint(self):
         #self.tmp_img = Painter(self.tmp_img))
         return
     
-    def Ink(self):
-        self.tmp_img = Ink().ink(self.tmp_img)
-        return
+    # def Ink(self):
+    #     self.tmp_img = Ink().ink(self.tmp_img)
+    #     return
     
     def Pencil(self):
         pencil = cv2.imread('./tables/pencil.jpg')
         self.tmp_img = Pencil.pencil_drawing(self.tmp_img,pencil)
         return
     
-    def USM(self):
-        self.tmp_img = Sharp.USM(self.tmp_img)
-        return
+    # def USM(self):
+    #     self.tmp_img = Sharp.USM(self.tmp_img)
+    #     return
     
-    def EdgeSharp(self):
-        self.tmp_img = Sharp.EdgeSharp(self.tmp_img)
-        return
+    # def EdgeSharp(self):
+    #     self.tmp_img = Sharp.EdgeSharp(self.tmp_img)
+    #     return
     
-    def SmartSharp(self):
-        self.tmp_img = Sharp.SmartSharp(self.tmp_img)
-        return
+    # def SmartSharp(self):
+    #     self.tmp_img = Sharp.SmartSharp(self.tmp_img)
+    #     return
     
     def blur(self,ksize=5):
         self.tmp_img = Blur.Blur(self.tmp_img,ksize)

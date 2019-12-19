@@ -6,9 +6,9 @@ Created on Sun Jan 27 10:39:53 2019
 """
 import numpy as np
 import cv2
-import ops
-import logger
-import Op.Mixed as Mixed
+from core import ops
+from common.app import logger
+from core.Mixed import Mixed
 from PyQt5.QtCore import QSettings,pyqtSignal,QObject
 
 class ImgObject(object):

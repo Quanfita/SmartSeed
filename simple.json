@@ -1,0 +1,6 @@
+{
+	"self": "The widget object",
+	"togo": "The widget where signal to go",
+	"content": "The data should transmission, it is an object",
+	"callback": "The callback function",
+}

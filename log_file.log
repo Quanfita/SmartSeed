@@ -2214,3 +2214,44 @@
 [2019-10-15 16:20:23,075][INFO][main.py][__init__][35]Application Start!
 [2019-10-15 16:20:23,075][INFO][main.py][__init__][37]Application running time:0.00022912025451660156
 [2019-10-16 09:51:11,689][INFO][/home/Qu/github/SmartSeed/app.py][closeEvent][515]Don't save files, and close application.
+[2019-11-13 17:18:18,354][INFO][/home/Qu/github/SmartSeed/views.py][turnBack][1392]Create new canvas as #FFFFFF with 512x512
+[2019-11-13 17:18:18,814][INFO][/home/Qu/github/SmartSeed/app.py][initUI][94]Init complited!
+[2019-11-13 17:18:18,868][INFO][main.py][__init__][35]Application Start!
+[2019-11-13 17:18:18,868][INFO][main.py][__init__][37]Application running time:0.00026798248291015625
+[2019-11-13 17:19:25,863][INFO][/home/Qu/github/SmartSeed/app.py][importimage][592]Open image: /home/Qu/github/SmartSeed/samples/26.jpg
+[2019-11-13 17:20:23,778][INFO][/home/Qu/github/SmartSeed/app.py][closeEvent][515]Don't save files, and close application.
+[2019-12-12 17:18:15,077][INFO][/home/Qu/github/SmartSeed/views.py][turnBack][1392]Create new canvas as #FFFFFF with 512x512
+[2019-12-12 17:18:15,456][INFO][/home/Qu/github/SmartSeed/app.py][initUI][94]Init complited!
+[2019-12-12 17:18:15,504][INFO][main.py][__init__][35]Application Start!
+[2019-12-12 17:18:15,504][INFO][main.py][__init__][37]Application running time:0.0002372264862060547
+[2019-12-12 17:40:37,500][INFO][/home/Qu/github/SmartSeed/app.py][closeEvent][515]Don't save files, and close application.
+[2019-12-13 14:42:50,337][DEBUG][common/logger.py][<module>][112]This is a debug log.
+[2019-12-13 14:42:50,337][INFO][common/logger.py][<module>][113]This is a info log.
+[2019-12-13 14:42:50,337][WARNING]This is a warning log.
+[2019-12-13 14:42:50,337][ERROR][common/logger.py][<module>][115]This is a error log.
+[2019-12-13 14:42:50,337][CRITICAL][common/logger.py][<module>][116]This is a critial log.
+[2019-12-13 14:43:27,684][DEBUG][common/logger.py][<module>][112]This is a debug log.
+[2019-12-13 14:43:27,684][INFO][common/logger.py][<module>][113]This is a info log.
+[2019-12-13 14:43:27,684][WARNING]This is a warning log.
+[2019-12-13 14:43:27,684][ERROR][common/logger.py][<module>][115]This is a error log.
+[2019-12-13 14:43:27,684][CRITICAL][common/logger.py][<module>][116]This is a critial log.
+[2019-12-13 14:44:35,201][DEBUG][common/logger.py][<module>][112]This is a debug log.
+[2019-12-13 14:44:35,202][INFO][common/logger.py][<module>][113]This is a info log.
+[2019-12-13 14:44:35,202][WARNING]This is a warning log.
+[2019-12-13 14:44:35,202][ERROR][common/logger.py][<module>][115]This is a error log.
+[2019-12-13 14:44:35,202][CRITICAL][common/logger.py][<module>][116]This is a critial log.
+[2019-12-13 14:45:48,882][DEBUG][common/logger.py][<module>][112]This is a debug log.
+[2019-12-13 14:45:48,882][INFO][common/logger.py][<module>][113]This is a info log.
+[2019-12-13 14:45:48,882][WARNING]This is a warning log.
+[2019-12-13 14:45:48,882][ERROR][common/logger.py][<module>][115]This is a error log.
+[2019-12-13 14:45:48,882][CRITICAL][common/logger.py][<module>][116]This is a critial log.
+[2019-12-13 15:36:44,732][DEBUG][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][114]This is a debug log.
+[2019-12-13 15:36:44,732][INFO][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][115]This is a info log.
+[2019-12-13 15:36:44,732][WARNING]This is a warning log.
+[2019-12-13 15:36:44,732][ERROR][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][117]This is a error log.
+[2019-12-13 15:36:44,732][CRITICAL][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][118]This is a critial log.
+[2019-12-13 15:46:10,048][DEBUG][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][114]This is a debug log.
+[2019-12-13 15:46:10,048][INFO][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][115]This is a info log.
+[2019-12-13 15:46:10,048][WARNING]This is a warning log.
+[2019-12-13 15:46:10,048][ERROR][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][117]This is a error log.
+[2019-12-13 15:46:10,049][CRITICAL][/home/Qu/桌面/github/SmartSeed/common/logger.py][<module>][118]This is a critial log.

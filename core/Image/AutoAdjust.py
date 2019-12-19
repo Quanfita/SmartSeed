@@ -13,7 +13,7 @@ class ACE(object):
     
     def __init__(self):
         self.g_para = {}
- 
+
     def stretchImage(self,data, s=0.005, bins = 2000):    #线性拉伸，去掉最大最小0.5%的像素值，然后线性拉伸至[0,1]
         ht = np.histogram(data, bins);
         d = np.cumsum(ht[0])/float(data.size)
