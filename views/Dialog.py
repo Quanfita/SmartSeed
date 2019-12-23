@@ -4,6 +4,121 @@ Created on Tue Feb  5 16:12:17 2019
 
 @author: Quanfita
 """
+from PyQt5.QtWidgets import QDialog,QLabel,QLineEdit,QPushButton,QComboBox
+from PyQt5.QtGui import QIcon
+from PyQt5.QtCore import Qt
+from common.utils import saveImage
+from core import ops
+import setting
+
+class SaveDialog(QDialog):
+    """docstring for SaveDialog"""
+    def __init__(self, parent):
+        super(SaveDialog, self).__init__()
+        self.parent = parent
+        self.setWindowModality(Qt.ApplicationModal)
+        self.resize(640,480)
+        self.setWindowTitle('Save Image')
+        self.setWindowIcon(QIcon('./static/UI/icon_32.png'))
+        self.setStyleSheet("QDialog{background-color:#535353;}")
+
+        self.t_lb = QLabel('format:',self)
+        self.t_lb.setAlignment(Qt.AlignLeft)
+        self.t_lb.setGeometry(460,40,80,20)
+
+        self.w_lb = QLabel('width:',self)
+        self.w_lb.setAlignment(Qt.AlignLeft)
+        self.w_lb.setGeometry(460,70,80,20)
+        
+        self.h_lb = QLabel('height:',self)
+        self.h_lb.setAlignment(Qt.AlignLeft)
+        self.h_lb.setGeometry(460,100,80,20)
+        
+        self.w_line = QLineEdit(self)
+        self.w_line.installEventFilter(self)
+        self.w_line.setGeometry(520,70,50,20)
+        self.w_line.setPlaceholderText('512')
+        self.w_line.setText('512')
+        self.w_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
+                                "QLineEdit:focus{background-color:#424242;border:none;}")
+        
+        self.h_line = QLineEdit(self)
+        self.h_line.installEventFilter(self)
+        self.h_line.setGeometry(520,100,50,20)
+        self.h_line.setPlaceholderText('512')
+        self.h_line.setText('512')
+        self.h_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
+                                "QLineEdit:focus{background-color:#424242;border:none;}")
+        
+        pix_info = ['px/inch','px/cm']
+        self.dpi_combox = QComboBox(self)
+        self.dpi_combox.addItems(pix_info)
+        self.dpi_combox.setGeometry(520,130,60,20)
+        self.dpi_combox.activated[str].connect(self.selectDpiMode)
+        self.dpi_combox.setStyleSheet("QComboBox{width:60px;color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
+           'QComboBox::drop-down{height:20px;width: 20px;subcontrol-origin:padding;subcontrol-position:top right;}'
+            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}'
+            "QComboBox QAbstractItemView{border: 0px;outline:0px;height:80px;width:80px;background-color: #323232;font:22px;color:white;}"
+            "QComboBox QAbstractItemView::item{height:20px;width:80px;}")
+        
+        format_info = ['png','jpg','bmp']
+        self.format_combox = QComboBox(self)
+        self.format_combox.addItems(format_info)
+        self.format_combox.setGeometry(520,40,60,20)
+        self.format_combox.activated[str].connect(self.selectPix)
+        self.format_combox.setStyleSheet("QComboBox{width:60px;color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
+           'QComboBox::drop-down{height:20px;width: 20px;subcontrol-origin:padding;subcontrol-position:top right;}'
+            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}'
+            "QComboBox QAbstractItemView{border: 0px;outline:0px;height:80px;background-color: #323232;font:22px;color:white;}"
+            "QComboBox QAbstractItemView::item{height:20px;width:80px;}")
+
+        self.ok_btn = QPushButton('OK',self)
+        self.ok_btn.setGeometry(560,420,60,25)
+        self.ok_btn.setFocus(True)
+        self.ok_btn.setDefault(True)
+        self.ok_btn.clicked.connect(self.saveImage)
+        self.cancel_btn = QPushButton('Cancel',self)
+        self.cancel_btn.setGeometry(480,420,60,25)
+        self.cancel_btn.clicked.connect(self.close)
+
+        self.imgShow = QLabel('',self)
+        self.imgShow.setAlignment(Qt.AlignCenter)
+        self.imgShow.setGeometry(40,40,400,400)
+        self.imgShow.setStyleSheet("QLabel{background-color:#424242;border:1px solid #646464;}")
+        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(ops.imread(setting.BASE_PATH+'/samples/10.jpg'),400,400)))
+
+        self.show()
+
+    def saveImage(self):
+        saveImage(self,None,'Untitled-1')
+
+    def selectPix(self,text):
+        # To calculate  the pixel number of canvas with different unit.
+        if self.dpi_combox.currentText() == 'px/cm':
+            tmp_dpi = self.canvas_dpi/2.54
+        else:
+            tmp_dpi = self.canvas_dpi
+        if self.__debug:
+            logger.debug('Info:'+str(self.w_line.text())+', '+str(self.h_line.text())+', '+str(self.canvas_width)+', '+str(self.canvas_height))
+        if text == 'px':
+            self.w_line.setText(str(int(self.canvas_width)))
+            self.h_line.setText(str(int(self.canvas_height)))
+        elif text == 'cm':
+            self.w_line.setText(str(round(self.canvas_width/tmp_dpi*2.54,2)))
+            self.h_line.setText(str(round(self.canvas_height/tmp_dpi*2.54,2)))
+        elif text == 'inch':
+            self.w_line.setText(str(round(self.canvas_width/tmp_dpi,2)))
+            self.h_line.setText(str(round(self.canvas_height/tmp_dpi,2)))
+
+    def selectDpiMode(self,text):
+        # To set the dpi unit.
+        if self.dpi_combox.currentText() == 'px/inch':
+            self.dpi_line.setText(str(self.canvas_dpi))
+        elif self.dpi_combox.currentText() == 'px/cm':
+            self.dpi_line.setText(str(round(self.canvas_dpi/2.54,2)))
+        else:
+            pass
+        
 
 
 class ResizeDialog(QDialog):
@@ -16,7 +131,7 @@ class ResizeDialog(QDialog):
         self.setWindowModality(Qt.ApplicationModal)
         self.resize(640,480)
         self.setWindowTitle('Resize '+self.target)
-        self.setWindowIcon(QIcon('./UI/icon_32.png'))
+        self.setWindowIcon(QIcon('./static/UI/icon_32.png'))
         self.canvas_width, self.canvas_height = sizeFun()
         
         self.w_lb = QLabel('width:',self)
@@ -90,7 +205,7 @@ class Welcome(QDialog):
         self.setFixedSize(360, 480)
         self.setWindowTitle('New Canvas')
         self.setStyleSheet("QDialog{background-color:#535353;}")
-        self.setWindowIcon(QIcon('./UI/icon_32.png'))
+        self.setWindowIcon(QIcon('./static/UI/icon_32.png'))
         
         self.main_lb = QLabel('New Canvas',self)
         self.main_lb.setAlignment(Qt.AlignCenter)
@@ -157,7 +272,7 @@ class Welcome(QDialog):
         self.dpi_combox.activated[str].connect(self.selectDpiMode)
         self.dpi_combox.setStyleSheet("QComboBox{color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
            'QComboBox::drop-down{height:25px;width: 25px;subcontrol-origin:padding;subcontrol-position:top right;}'
-            'QComboBox::down-arrow{image:url(./UI/angle-down.svg);border:0px;}')
+            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}')
         
         pix_info = ['px','cm','inch']
         self.pix_combox = QComboBox(self)
@@ -166,7 +281,7 @@ class Welcome(QDialog):
         self.pix_combox.activated[str].connect(self.selectPix)
         self.pix_combox.setStyleSheet("QComboBox{color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
            'QComboBox::drop-down{height:25px;width: 25px;subcontrol-origin:padding;subcontrol-position:top right;}'
-            'QComboBox::down-arrow{image:url(./UI/angle-down.svg);border:0px;}')
+            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}')
         
         self.color_btn = QPushButton(self)
         self.color_btn.setGeometry(230,350,25,25)
@@ -182,7 +297,7 @@ class Welcome(QDialog):
         self.color_combox.activated[str].connect(self.selectColor)
         self.color_combox.setStyleSheet("QComboBox{color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
            'QComboBox::drop-down{height:25px;width: 25px;subcontrol-origin:padding;subcontrol-position:top right;}'
-            'QComboBox::down-arrow{image:url(./UI/angle-down.svg);border:0px;}')
+            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}')
         
         self.ok_btn = QPushButton('OK',self)
         self.ok_btn.setGeometry(220,410,80,30)
@@ -381,7 +496,7 @@ class AdjDialog(QDialog):
         self.resize(640, 480)
         self.setFixedSize(640, 480)
         self.setWindowTitle('Adjustment')
-        self.setWindowIcon(QIcon('./UI/icon_32.png'))
+        self.setWindowIcon(QIcon('./static/UI/icon_32.png'))
         self.__img = img
         self.__tmp_img = np.copy(self.__img.Image)
         self.img_h,self.img_w = self.__img.height,self.__img.width

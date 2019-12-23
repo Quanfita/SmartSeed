@@ -447,3 +447,41 @@ class MainWindow(QMainWindow):
         if image is not None:
             self.mcanvas.canvas.layers.updateCurrentLayerImage(image)
         self.hist.DrawHistogram(self.mcanvas.canvas.layers.Image)
+
+    def contextMenuEvent(self, event):
+        cmenu = QMenu(self)
+
+        newAct = cmenu.addAction("New")
+        opnAct = cmenu.addAction("Open")
+        quitAct = cmenu.addAction("Quit")
+        action = cmenu.exec_(self.mapToGlobal(event.pos()))
+
+        if action == quitAct:
+           #qApp.quit()
+           self.close()
+        elif action == opnAct:
+           self.openimage()
+        elif action == newAct:
+           self.newBlock()
+        else:
+           pass
+
+    def closeEvent(self, event):
+        if not self.__debug:
+            reply = QMessageBox.question(self, 'Message',
+                "Are you sure to quit?", QMessageBox.Save | 
+                QMessageBox.Discard | QMessageBox.Cancel, QMessageBox.Save)
+            if reply == QMessageBox.Save:
+                logger.info('Save files, and close application.')
+                flag = self.saveSlot()
+                if flag:
+                    event.accept()
+                else:
+                    event.ignore()
+            elif reply == QMessageBox.Discard:
+                logger.info("Don\'t save files, and close application.")
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()

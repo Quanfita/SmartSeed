@@ -16,7 +16,7 @@ def imread(imagename):
     if tag in ['jpg', 'jpeg', 'jpe', 'jfif']:
         _type = 'JPEG'
     img = cv2.imread(imagename,cv2.IMREAD_UNCHANGED)
-    if not img:
+    if img is None:
         raise Exception("Error! Image cannot be read...")
     if len(img.shape) < 3:
         if len(img.shape) == 2:
@@ -181,6 +181,15 @@ def drawBackground(w,h):
                 img[i:i+10,j:j+10] = 204
                 img[i+10:i+20,j+10:j+20] = 204
     img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
+    return img
+
+def resizeAdjustment(img,width,height):
+    h,w = img.shape[0],img.shape[1]
+    s,sT = h/w, w/h
+    if s > 1:
+        img = cv2.resize(img,(int(width*sT),height))
+    else:
+        img = cv2.resize(img,(width,int(height*s)))
     return img
 
 '''

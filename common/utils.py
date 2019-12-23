@@ -1,5 +1,8 @@
 from PyQt5.QtCore import QSettings
+from PIL import Image
 from setting import USER_CONF_FILE, TEMP_CONF_FILE, HISTORY_FILE, CONFIG_PATH
+from core import ops
+from PyQt5.QtWidgets import QFileDialog
 
 import configparser
 import time
@@ -33,7 +36,8 @@ def readHistoryCfg():
     cf = configparser.ConfigParser()
     history = cf.read(os.path.join(CONFIG_PATH, HISTORY_FILE))
     sessions = cf.sections()
-    for key in history['bitbucket.org']
+    for key in history['bitbucket.org']:
+        pass
 
 def saveHistoryCfg(dic):
     cf = configparser.ConfigParser()
@@ -43,6 +47,33 @@ def saveHistoryCfg(dic):
     # print(os.path.join(CONFIG_PATH, HISTORY_FILE))
     with open(os.path.join(CONFIG_PATH, HISTORY_FILE),'w') as f:
         cf.write(f)
+
+def openImage(parent):
+    imgName,imgType= QFileDialog.getOpenFileName(
+                                parent,
+                                "打开图片",
+                                "",
+                                " *.jpg;;*.png;;*.jpeg;;*.bmp;;All Files (*)")
+    if imgName is '':
+        return None
+    else:
+        im = Image.open(imgName)
+        image = ops.imread(imgName)
+        info = {'image':image,'size':im.size,'mode':im.mode,'format':im.format,'image_path':imgName,'image_name':imgName.split('/')[-1]}
+        return info
+
+def saveImage(parent, image, name):
+    # 调用存储文件dialog
+    fileName, tmp = QFileDialog.getSaveFileName(
+                                parent,
+                                'Save Image',
+                                name,
+                                '*.png *.jpg *.bmp', '*.png')
+    if fileName is '':
+        return False
+    else:
+        ops.imsave(image, fileName)
+        return True
 
 if __name__ == '__main__':
     saveHistoryCfg({})
