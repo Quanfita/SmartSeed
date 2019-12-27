@@ -185,12 +185,30 @@ def drawBackground(w,h):
 
 def resizeAdjustment(img,width,height):
     h,w = img.shape[0],img.shape[1]
-    s,sT = h/w, w/h
-    if s > 1:
-        img = cv2.resize(img,(int(width*sT),height))
+    s_h,s_w = h/height,w/width
+    if s_h > s_w:
+        img = cv2.resize(img,(int(w/s_h),height))
     else:
-        img = cv2.resize(img,(width,int(height*s)))
+        img = cv2.resize(img,(width,int(h/s_w)))
     return img
+
+def resize(img,width,height):
+    return cv2.resize(img,(width,height))
+
+def gcd(a,b):
+    if b!=0:
+        return gcd(b,a%b)
+    else:
+        return a
+
+def makeIcon(image):
+    icon = np.zeros([30,40,4],dtype=np.uint8)
+    img = resizeAdjustment(image,40,30)
+    c_x,c_y = img.shape[1]//2,img.shape[0]//2
+    s_x,s_y = max(20-c_x,0),max(15-c_y,0)
+    icon[s_y:s_y+img.shape[0],s_x:s_x+img.shape[1],:] = img
+    icon = cv2.copyMakeBorder(icon,3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255])
+    return cvtCV2PixmapAlpha(icon)
 
 '''
 def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):

@@ -2,6 +2,7 @@ from PyQt5.QtCore import QSettings
 from PIL import Image
 from setting import USER_CONF_FILE, TEMP_CONF_FILE, HISTORY_FILE, CONFIG_PATH
 from core import ops
+from middleware.Structure import ImgObject
 from PyQt5.QtWidgets import QFileDialog
 
 import configparser
@@ -58,11 +59,11 @@ def openImage(parent):
         return None
     else:
         im = Image.open(imgName)
-        image = ops.imread(imgName)
+        image = ImgObject(ops.imread(imgName),imgName.split('/')[-1])
         info = {'image':image,'size':im.size,'mode':im.mode,'format':im.format,'image_path':imgName,'image_name':imgName.split('/')[-1]}
         return info
 
-def saveImage(parent, image, name):
+def saveImage(parent, image, name, depth=8, dpi=72.0, quanlity=80):
     # 调用存储文件dialog
     fileName, tmp = QFileDialog.getSaveFileName(
                                 parent,
@@ -72,7 +73,7 @@ def saveImage(parent, image, name):
     if fileName is '':
         return False
     else:
-        ops.imsave(image, fileName)
+        ops.imsave(image, fileName, depth=depth, dpi=dpi, quanlity=quanlity)
         return True
 
 if __name__ == '__main__':

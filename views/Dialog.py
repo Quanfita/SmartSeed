@@ -4,7 +4,7 @@ Created on Tue Feb  5 16:12:17 2019
 
 @author: Quanfita
 """
-from PyQt5.QtWidgets import QDialog,QLabel,QLineEdit,QPushButton,QComboBox
+from PyQt5.QtWidgets import QDialog,QLabel,QLineEdit,QPushButton,QComboBox,QSlider,QCheckBox,QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
 from common.utils import saveImage
@@ -16,6 +16,7 @@ class SaveDialog(QDialog):
     def __init__(self, parent):
         super(SaveDialog, self).__init__()
         self.parent = parent
+        self.test_img = ops.imread(setting.BASE_PATH+'/samples/10.jpg')
         self.setWindowModality(Qt.ApplicationModal)
         self.resize(640,480)
         self.setWindowTitle('Save Image')
@@ -33,33 +34,67 @@ class SaveDialog(QDialog):
         self.h_lb = QLabel('height:',self)
         self.h_lb.setAlignment(Qt.AlignLeft)
         self.h_lb.setGeometry(460,100,80,20)
+
+        self.q_lb = QLabel('quanlity:',self)
+        self.q_lb.setAlignment(Qt.AlignLeft)
+        self.q_lb.setGeometry(460,160,80,20)
+
+        self.sl = QSlider(Qt.Horizontal,self)
+        #self.sl.resize(30,100)
+        self.sl.setGeometry(460,190,150,20)
+        self.sl.setMinimum(0)
+        self.sl.setMaximum(100)
+        self.sl.setTickPosition(QSlider.TicksAbove)
+        self.sl.setValue(70)
+        self.sl.valueChanged[int].connect(self.setQuanlityValue)
         
         self.w_line = QLineEdit(self)
+        self.w_line.setObjectName('width')
         self.w_line.installEventFilter(self)
         self.w_line.setGeometry(520,70,50,20)
-        self.w_line.setPlaceholderText('512')
-        self.w_line.setText('512')
+        self.w_line.setPlaceholderText(str(self.test_img.shape[1]))
+        self.w_line.setText(str(self.test_img.shape[1]))
         self.w_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
                                 "QLineEdit:focus{background-color:#424242;border:none;}")
+        self.w_line.textEdited[str].connect(self.setScaleValue)
         
         self.h_line = QLineEdit(self)
+        self.h_line.setObjectName('height')
         self.h_line.installEventFilter(self)
         self.h_line.setGeometry(520,100,50,20)
-        self.h_line.setPlaceholderText('512')
-        self.h_line.setText('512')
+        self.h_line.setPlaceholderText(str(self.test_img.shape[0]))
+        self.h_line.setText(str(self.test_img.shape[0]))
         self.h_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
                                 "QLineEdit:focus{background-color:#424242;border:none;}")
+        self.h_line.textEdited[str].connect(self.setScaleValue)
+
+        gcd = ops.gcd(int(self.w_line.text()),int(self.h_line.text()))
+        scale_w,scale_h = int(self.w_line.text())//gcd,int(self.h_line.text())//gcd
+        self.scale = int(self.w_line.text())/int(self.h_line.text())
+        self.s_ckbx = QCheckBox('保持长宽比\t{0}:{1}'.format(scale_w,scale_h),self)
+        self.s_ckbx.setGeometry(460,130,150,20)
+        self.s_ckbx.setChecked(True)
+        self.s_ckbx.toggled[bool].connect(self.setCheckValue)
+
+        self.q_line = QLineEdit(self)
+        self.q_line.installEventFilter(self)
+        self.q_line.setGeometry(520,160,50,20)
+        self.q_line.setPlaceholderText('70')
+        self.q_line.setText('70')
+        self.q_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
+                                "QLineEdit:focus{background-color:#424242;border:none;}")
+        self.q_line.textEdited[str].connect(self.setQuanlityValue)
         
-        pix_info = ['px/inch','px/cm']
-        self.dpi_combox = QComboBox(self)
-        self.dpi_combox.addItems(pix_info)
-        self.dpi_combox.setGeometry(520,130,60,20)
-        self.dpi_combox.activated[str].connect(self.selectDpiMode)
-        self.dpi_combox.setStyleSheet("QComboBox{width:60px;color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
-           'QComboBox::drop-down{height:20px;width: 20px;subcontrol-origin:padding;subcontrol-position:top right;}'
-            'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}'
-            "QComboBox QAbstractItemView{border: 0px;outline:0px;height:80px;width:80px;background-color: #323232;font:22px;color:white;}"
-            "QComboBox QAbstractItemView::item{height:20px;width:80px;}")
+        # pix_info = ['px/inch','px/cm']
+        # self.dpi_combox = QComboBox(self)
+        # self.dpi_combox.addItems(pix_info)
+        # self.dpi_combox.setGeometry(520,130,60,20)
+        # self.dpi_combox.activated[str].connect(self.selectDpiMode)
+        # self.dpi_combox.setStyleSheet("QComboBox{width:60px;color:white;background-color:#434343;border:1px solid gray;border-radius:3px;padding:1px 2px 1px 2px;min-width:6em;}"
+        #    'QComboBox::drop-down{height:20px;width: 20px;subcontrol-origin:padding;subcontrol-position:top right;}'
+        #     'QComboBox::down-arrow{image:url(./static/UI/angle-down.svg);border:0px;}'
+        #     "QComboBox QAbstractItemView{border: 0px;outline:0px;height:80px;width:80px;background-color: #323232;font:22px;color:white;}"
+        #     "QComboBox QAbstractItemView::item{height:20px;width:80px;}")
         
         format_info = ['png','jpg','bmp']
         self.format_combox = QComboBox(self)
@@ -85,12 +120,46 @@ class SaveDialog(QDialog):
         self.imgShow.setAlignment(Qt.AlignCenter)
         self.imgShow.setGeometry(40,40,400,400)
         self.imgShow.setStyleSheet("QLabel{background-color:#424242;border:1px solid #646464;}")
-        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(ops.imread(setting.BASE_PATH+'/samples/10.jpg'),400,400)))
+        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(self.test_img,400,400)))
 
         self.show()
 
+    def setQuanlityValue(self, value):
+        self.q_line.setText(str(value))
+        self.sl.setValue(int(value))
+
+    def setScaleValue(self, value):
+        sender = self.sender()
+        name = sender.objectName()
+        if self.s_ckbx.isChecked():
+            if name == 'width':
+                self.h_line.setText(str(int(int(self.w_line.text())/self.scale)))
+            elif name == 'height':
+                self.w_line.setText(str(int(int(self.h_line.text())*self.scale)))
+        else:
+            tmp_img = ops.resize(self.test_img,int(self.w_line.text()),int(self.h_line.text()))
+            self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(tmp_img,400,400)))
+
+    def setCheckValue(self, value):
+        if value:
+            gcd = ops.gcd(int(self.w_line.text()),int(self.h_line.text()))
+            scale_w,scale_h = int(self.w_line.text())//gcd,int(self.h_line.text())//gcd
+            self.scale = int(self.w_line.text())/int(self.h_line.text())
+            self.s_ckbx.setText('保持长宽比\t{0}:{1}'.format(scale_w,scale_h))
+            self.s_ckbx.setChecked(True)
+        else:
+            self.s_ckbx.setChecked(False)
+
     def saveImage(self):
-        saveImage(self,None,'Untitled-1')
+        width,height = int(self.w_line.text()),int(self.h_line.text())
+        quanlity = int(self.q_line.text())
+        img = ops.resize(self.test_img, width, height)
+        if saveImage(self,img,'Untitled-1',quanlity=quanlity):
+            self.close()
+        else:
+            # reply = QMessageBox.warning(self, '错误',
+            #     "保存图片失败", QMessageBox.Ok, QMessageBox.Ok)
+            pass
 
     def selectPix(self,text):
         # To calculate  the pixel number of canvas with different unit.
@@ -110,14 +179,14 @@ class SaveDialog(QDialog):
             self.w_line.setText(str(round(self.canvas_width/tmp_dpi,2)))
             self.h_line.setText(str(round(self.canvas_height/tmp_dpi,2)))
 
-    def selectDpiMode(self,text):
-        # To set the dpi unit.
-        if self.dpi_combox.currentText() == 'px/inch':
-            self.dpi_line.setText(str(self.canvas_dpi))
-        elif self.dpi_combox.currentText() == 'px/cm':
-            self.dpi_line.setText(str(round(self.canvas_dpi/2.54,2)))
-        else:
-            pass
+    # def selectDpiMode(self,text):
+    #     # To set the dpi unit.
+    #     if self.dpi_combox.currentText() == 'px/inch':
+    #         self.dpi_line.setText(str(self.canvas_dpi))
+    #     elif self.dpi_combox.currentText() == 'px/cm':
+    #         self.dpi_line.setText(str(round(self.canvas_dpi/2.54,2)))
+    #     else:
+    #         pass
         
 
 

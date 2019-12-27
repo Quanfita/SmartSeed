@@ -17,13 +17,14 @@ class InfoLabel(QLabel):
     signal = pyqtSignal(dict)
     def __init__(self):
         super(InfoLabel, self).__init__()
+        self.dpi = 72
         self.setLabelText({'x':0,'y':0})
         self.setAlignment(Qt.AlignLeft)
         self.setStyleSheet("color:white;background-color:#535353;padding:10px;border:1px solid #282828;")
 
     def setLabelText(self, content):
-        x, y = content['x'], content['y']
-        self.text = "x: {0},  y: {1}".format(x, y)
+        self.x, self.y = content['x'], content['y']
+        self.text = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(self.x, self.y, self.dpi)
         self.setText(self.text)
 
 

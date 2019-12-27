@@ -16,6 +16,7 @@ import numpy as np
 from views.Canvas import MutiCanvas, Canvas
 from views.DockWidget import InfoLabel, Hist, FrontBackColor
 from views.Layer import LayerMain
+from views.Dialog import SaveDialog
 from common.app import logger
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, 
@@ -27,11 +28,12 @@ from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip,
                              QGridLayout, QSplitter, QDockWidget, 
                              QToolBar,QProgressDialog)
 from PyQt5.QtGui import QIcon, QFont, QColor
-
+from common import utils
 
 
 class MainWindow(QMainWindow):
-    main_signal = pyqtSignal(dict)
+    in_signal = pyqtSignal(dict)
+    out_signal = pyqtSignal(dict)
     def __init__(self,debug=False):
         #super().__init__()
         super(MainWindow,self).__init__()
@@ -56,12 +58,6 @@ class MainWindow(QMainWindow):
         # self.pos_xy = []
         self.mcanvas = MutiCanvas(debug=self.__debug)
         self.mcanvas.canvas = Canvas()
-        #self.mcanvas.refresh.connect(self.refreshShow)
-        #self.mcanvas.added.connect(self.middleware)
-        # self.mcanvas.addTab(self.mcanvas.canvas,'1')
-        #self.Thr = ProThread(self.mcanvas.canvas.layers)
-        # self.F = Hist()
-        #self.F = MyFigure(width=3, height=2, dpi=100)
         self.last_tool = ''
         self.frontcolor = QColor('white')
         self.backcolor = QColor('black')
@@ -82,13 +78,14 @@ class MainWindow(QMainWindow):
         self.initMenu()
         self.initToolBar()
         self.initDockWidget()
+        self.initSignals()
 
         self.setWindowTitle('SmartSeed')
         self.setWindowIcon(QIcon('./static/UI/icon_32.png'))        
         self.showMaximized()
         self.show()
         logger.info('Init complited!')
-        self.refreshShow()
+        # self.refreshShow()
     
     def initMenu(self):
         exitAct = QAction(QIcon('./static/UI/exit.svg'), '&Exit', self)        
@@ -258,11 +255,11 @@ class MainWindow(QMainWindow):
         filterMenu.addMenu(sharpen_filter)
         filterMenu.addMenu(filter_lib)
 
-        filter_list = ['Portrait','Smooth','Morning','Pop','Accentuate',
+        self.filter_list = ['Portrait','Smooth','Morning','Pop','Accentuate',
                         'Art Style','Black & White','HDR','Modern','Old',
                         'Yellow']
 
-        for i in filter_list:
+        for i in self.filter_list:
             _filter = QAction(i,self)
             _filter.setStatusTip(i)
             _filter.triggered.connect(self.sendMsg)
@@ -363,16 +360,16 @@ class MainWindow(QMainWindow):
         self.zoomAct.setStatusTip('Zoom')
         self.zoomAct.triggered.connect(self.sendMsg)
         
-        toollist = {'Vary':self.varyAct,'Pencil':self.pencilAct,'Line':self.lineAct,
+        self.toollist = {'Vary':self.varyAct,'Pencil':self.pencilAct,'Line':self.lineAct,
                     'Rect':self.rectAct,'Circle':self.circleAct,'Fill-Drip':self.fillAct,
                     'Eraser':self.eraserAct,'Brush':self.brushAct,'Crop':self.cropAct,
                     'Dropper':self.dropperAct,'Stamp':self.stampAct,'Move':self.moveAct,
                     'Zoom':self.zoomAct}
-        tl = [i for i in toollist.keys()]
-        for i in range(len(toollist)):
+        tl = [i for i in self.toollist.keys()]
+        for i in range(len(self.toollist)):
             if i != 0:
                 self.toolBar.addSeparator()
-            self.toolBar.addAction(toollist[tl[i]])
+            self.toolBar.addAction(self.toollist[tl[i]])
         self.toolBar.addWidget(self.colorWidget)
         self.toolBar.setOrientation(Qt.Vertical)
         
@@ -421,6 +418,11 @@ class MainWindow(QMainWindow):
         # self.addDockWidget(Qt.RightDockWidgetArea,self.channel_dock)
         # self.tabifyDockWidget(self.channel_dock,self.layer_dock)
 
+    def initSignals(self):
+        self.mcanvas.canvas.out_signal[dict].connect(self.sendMsg)
+        self.mcanvas.out_signal[dict].connect(self.sendMsg)
+        self.layer.out_signal[dict].connect(self.sendMsg)
+
     def createDockWidget(self, name, widget):  # 定义一个createDock方法创建一个dockwidget
         dock = QDockWidget(name)  # 实例化dockwidget类
         dock.setWidget(widget)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
@@ -430,23 +432,51 @@ class MainWindow(QMainWindow):
                             'QDockWidget:title{color:#cdcdcd;background-color:#535353;}')
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
 
-    def sendMsg(self, connect={}):
-        pass
+    def sendMsg(self, content={}):
+        sender = self.sender()
+        try:
+            name = sender.text()
+        except:
+            name = content['type']
+        logger.debug('MainWindow request message: '+str(name)+', '+str(content))
+        if name in ['Open','Import image']:
+            if name == 'Open':
+                res = utils.openImage(self)
+                if res:
+                    self.mcanvas.newCanvas()
+                    send_data = {'data':res,'callback':self.refreshShow,'type':name,'togo':'layer'}
+                    self.out_signal.emit(send_data)
+            elif name == 'Import image':
+                res = utils.openImage(self)
+                res['index'] = len(self.layer.layer_list.list_names)
+                send_data = {'data':res,'callback':self.refreshShow,'type':name,'togo':'layer'}
+                self.out_signal.emit(send_data)
+                # self.layer.in_signal.emit(send_data)
+                # self.layer.addLayer(res['image'].image,res['image_name'])
+        elif name == 'Save':
+            save = SaveDialog(self)
+            save.exec_()
+        elif name == 'refresh':
+            self.refreshShow()
+        elif name in ['exchange','dellayer','cpylayer','sltlayer','newlayer']:
+            content['callback'] = self.refreshShow
+            self.out_signal.emit(content)
+        elif name in ['vary','move','pencil','line','rect','stamp','dropper','circle','brush','eraser','fill','zoom']:
+            self.perOpTools(name)
+        elif name in self.filter_list:
+            data = {'data':{'filter':name},'type':'filter','togo':'thread','callback':self.refreshShow}
+            self.out_signal.emit(data)
 
-    def sendToolMsg(self, connect={}):
-        pass
-
-    def sendMenuMsg(self, connect={}):
-        pass
-
-    def refreshShow(self,image=None):
+    def refreshShow(self,imgobj=None):
         if self.__debug:
             logger.debug('Refresh canvas.')
-        self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(self.mcanvas.canvas.layers.width()/self.mcanvas.canvas.dpi,2),round(self.mcanvas.canvas.layers.height()/self.mcanvas.canvas.dpi,2),self.mcanvas.canvas.dpi)
-        self.infoDock.setText(self.info)
-        if image is not None:
-            self.mcanvas.canvas.layers.updateCurrentLayerImage(image)
-        self.hist.DrawHistogram(self.mcanvas.canvas.layers.Image)
+        # self.info = 'width: {0}\t height: {1}\n\ndpi: {2}'.format(round(imgobj.width()/imgobj.dpi,2),round(imgobj.height()/imgobj.dpi,2),imgobj.dpi)
+
+        if imgobj is not None:
+            # self.infoDock.setLabelText({'x':imgobj.width(),'y':imgobj.height()})
+            # self.layer.updateCurrentLayerImage(imgobj.Image)
+            self.mcanvas.canvas.draw.refresh(imgobj)
+            self.hist.DrawHistogram(imgobj)
 
     def contextMenuEvent(self, event):
         cmenu = QMenu(self)
@@ -485,3 +515,60 @@ class MainWindow(QMainWindow):
                 event.ignore()
         else:
             event.accept()
+
+    def saveSlot(self):
+        SaveDialog(self)
+
+    def disPre(self):
+        if self.last_tool in self.toollist.keys():
+            self.toollist[self.last_tool].setEnabled(True)
+        else:
+            return
+        # if self.last_tool == 'Pencil':
+        #     self.pencilAct.setEnabled(True)
+        # elif self.last_tool == 'Line':
+        #     self.lineAct.setEnabled(True)
+        # elif self.last_tool == 'Rect':
+        #     self.rectAct.setEnabled(True)
+        # elif self.last_tool == 'Circle':
+        #     self.circleAct.setEnabled(True)
+        # elif self.last_tool == 'Fill':
+        #     self.fillAct.setEnabled(True)
+        # elif self.last_tool == 'Crop':
+        #     self.cropAct.setEnabled(True)
+        # elif self.last_tool == 'Dropper':
+        #     self.dropperAct.setEnabled(True)
+        # elif self.last_tool == 'Eraser':
+        #     self.eraserAct.setEnabled(True)
+        # elif self.last_tool == 'Brush':
+        #     self.brushAct.setEnabled(True)
+        # elif self.last_tool == 'Stamp':
+        #     self.stampAct.setEnabled(True)
+        # elif self.last_tool == 'Vary':
+        #     self.varyAct.setEnabled(True)
+        # else: return
+        '''
+        self.removeDockWidget(self.tmp_dock)
+        sip.delete(self.tmp_dock)'''
+        self.main_toolbar.clear()
+        sip.delete(self.adj_b)
+
+    def perOpTools(self,s):
+        if self.__debug:
+            logger.debug('Choose tool:'+s)
+        self.mcanvas.canvas.draw.chgType(s)
+        self.disPre()
+        self.mcanvas.canvas.chgCursor(s)
+        # self.adj_b = AdjBlock(self.mcanvas.canvas.draw)
+        # self.adj_b.setColorByName(self.frontcolor.name())
+        #self.mcanvas.canvas.draw.ChangePenColor(self.frontcolor)
+        '''
+        self.tmp_dock = QDockWidget(s+' Attributes')  # 实例化dockwidget类
+        self.tmp_dock.setWidget(self.adj_b)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
+        self.tmp_dock.setObjectName("Attributes")
+        self.tmp_dock.setFeatures(self.tmp_dock.DockWidgetFloatable|self.tmp_dock.DockWidgetMovable)    #  设置dockwidget的各类属性
+        self.addDockWidget(Qt.RightDockWidgetArea, self.tmp_dock)'''
+        # self.main_toolbar.addWidget(self.adj_b)
+        #if self.last_tool == '':self.mcanvas.canvas.draw.saveImg()
+        self.last_tool = s
+        self.refreshShow()

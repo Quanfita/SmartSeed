@@ -10,8 +10,10 @@ from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject
 from common.app import logger
 from core import ops
 from middleware.Structure import LayerStack
+from common import utils
 
 import numpy as np
+import setting
 import cv2
 
 class Brush(QObject):
@@ -153,6 +155,11 @@ class Draw(QLabel):
     def redraw(self):
         if self._flag:
             self.repaint()
+
+    def refresh(self, img):
+        logger.debug('refresh')
+        self.setStyleSheet('QLabel{border:1px solid #c00;}')
+        self.setPixmap(ops.cvtCV2PixmapAlpha(img))
     
     def paintEvent(self,event):
         # There overload the paintEvent Function, 
@@ -345,8 +352,9 @@ class MutiCanvas(QTabWidget):
     #changed = pyqtSignal(dict)
     #added = pyqtSignal(dict)
     #deleted = pyqtSignal(dict)
-    refresh = pyqtSignal()
-    def __init__(self,debug=False):
+    out_signal = pyqtSignal(dict)
+    in_signal = pyqtSignal(dict)
+    def __init__(self,parent=None,debug=False):
         super().__init__()
         self.__debug = debug
         self.canvasList = []
@@ -359,7 +367,7 @@ class MutiCanvas(QTabWidget):
         self.setAutoFillBackground(True)
         self.tabCloseRequested.connect(self.removeTab)
         self.currentChanged.connect(self.selectCanvas)
-        self.newCanvas()
+        # self.newCanvas()
     
     def addCanvas(self,canvas):
         self.canvas = canvas
@@ -380,7 +388,7 @@ class MutiCanvas(QTabWidget):
             logger.debug('Insert canvas:'+self.canvas.canvasName+', index:'+str(idx)+', total '+str(len(self.canvasList))+' canvas.')
     
     def newCanvas(self):
-        self.canvas = Canvas(debug=self.__debug)
+        self.canvas = Canvas(parent=self,debug=self.__debug)
         self.canvasList.append(self.canvas)
         self.addTab(self.canvas,self.canvas.canvasName)
         #self.added.emit({'mode':'new'})
@@ -399,7 +407,7 @@ class MutiCanvas(QTabWidget):
         if self.__debug:
             logger.debug('Select canvas index:'+str(self.currentCanvasIndex()))
         self.canvas = self.canvasList[self.currentCanvasIndex()]
-        self.refresh.emit()
+        # self.out_signal.emit({'type':'refresh'})
         #self.changed.emit({'mode':'change','index':self.currentCanvasIndex()})
     
     def delCanvas(self):
@@ -528,11 +536,14 @@ class Canvas(QWidget):
     """
     This is a drawing board class in which the data structure of the layer is connected.
     """
+    out_signal = pyqtSignal(dict)
+    in_signal = pyqtSignal(dict)
     signal = pyqtSignal()
     changeRow = pyqtSignal(int)
-    def __init__(self,debug=False):
+    def __init__(self,parent=None,debug=False):
         super().__init__()
         self.__debug = debug
+        self.parent = parent
         self.setMinimumSize(250, 300)
         self.setStyleSheet("background-color:#282828;border:0px;padding:0px;margin:0px;")
         self.draw = Draw(debug=self.__debug)
@@ -545,32 +556,25 @@ class Canvas(QWidget):
         self.scroll = CanvasScroll(debug=self.__debug)
         self.scroll.setAlignment(Qt.AlignCenter)
         self.scroll.setWidget(self.draw)
-        settings = QSettings("tmp.ini", QSettings.IniFormat)
-        if settings.value('mode') == 1:
-            img = ops.imread(settings.value('imagePath'))
-            self.canvasName = settings.value('imageName')
-            self.layers = LayerStack(img,debug=self.__debug)
-            self.layers.name = self.canvasName
-        else:
-            self.layers = LayerStack(debug=self.__debug)
-            self.layers.name = self.canvasName
-        self.dpi = int(settings.value('dpi'))
-        self.draw.resize(*self.layers.ImgInfo())
         self.vbox = QVBoxLayout()
         self.vbox.setAlignment(Qt.AlignCenter)
         self.vbox.setContentsMargins(0,0,0,0)
         self.vbox.addWidget(self.scroll)
         self.setLayout(self.vbox)
-        #self.draw.signal[str,tuple,tuple,tuple,int,tuple].connect(self.draw_2Pix)
-        #self.draw.signal_[list,int,tuple].connect(self.draw_NPix)
-        self.layers.signal.connect(self.imgOperate)
-        self.layers.layNum_signal[int].connect(self.chgLayerImage)
-        self.layers.changeImg(self.layers.Image)
         self.draw.send_signal[dict].connect(self.taskDistribution)
         self.draw.typechanged[dict].connect(self.toolsInit)
-        #self.draw.drop_signal[tuple].connect(self.dropColor)
-        #self.draw.fill_signal[tuple].connect(self.fillColor)
+        self.in_signal[dict].connect(self.doMsg)
     
+    def doMsg(self, content):
+        logger.debug('Canvas request message: '+str(content))
+        if content['type'] == 'resize':
+            self.brush.resize(*content['data'])
+        else:
+            layer = content['data']['layer']
+            self.draw.resize(layer.width(),layer.height())
+            self.draw.refresh(layer.image)
+        pass
+
     def getCenterPoint(self):
         return ((self.scroll.width()+1)//2, (self.scroll.height()+1)//2)
     
@@ -612,30 +616,32 @@ class Canvas(QWidget):
     def taskDistribution(self,content):
         if self.__debug:
             logger.debug('Content:'+str(content))
-        mode = content['mode']
-        if mode in ['Line','Rect','Circle']:
-            self.draw_2Pix(mode,content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'])
-        elif mode == 'Pencil':
-            self.draw_NPix(content['point_list'],content['thick'],content['color'])
-        elif mode == 'Dropper':
-            self.dropColor(content['position'])
-        elif mode == 'Fill':
-            self.fillColor(content['position'],content['color'])
-        elif mode == 'Vary':
-            x1,y1,x2,y2 = self.layers.getRectOfImage()
-            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-            self.scroll.draw(self._rect)
-            self.scroll.repaint()
-            self.varyImage(content['start_position'],content['end_position'],content['enter'])
-        elif mode == 'Brush':
-            self.brushDraw(content['position'],content['type'],content['color'],content['size'],content['is_start'])
-        elif mode == 'Zoom':
-            self.zoom(content['isplus'])
-        elif mode == 'Move':
-            self.movement(content['start'],content['end'],content['enter'])
-        else:
-            return
+        self.out_signal.emit(content)
+
+        # mode = content['mode']
+        # if mode in ['Line','Rect','Circle']:
+        #     self.draw_2Pix(mode,content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'])
+        # elif mode == 'Pencil':
+        #     self.draw_NPix(content['point_list'],content['thick'],content['color'])
+        # elif mode == 'Dropper':
+        #     self.dropColor(content['position'])
+        # elif mode == 'Fill':
+        #     self.fillColor(content['position'],content['color'])
+        # elif mode == 'Vary':
+        #     x1,y1,x2,y2 = self.layers.getRectOfImage()
+        #     self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+        #     self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+        #     self.scroll.draw(self._rect)
+        #     self.scroll.repaint()
+        #     self.varyImage(content['start_position'],content['end_position'],content['enter'])
+        # elif mode == 'Brush':
+        #     self.brushDraw(content['position'],content['type'],content['color'],content['size'],content['is_start'])
+        # elif mode == 'Zoom':
+        #     self.zoom(content['isplus'])
+        # elif mode == 'Move':
+        #     self.movement(content['start'],content['end'],content['enter'])
+        # else:
+        #     return
     
     def zoom(self,isplus):
         if isplus:
@@ -789,22 +795,22 @@ class Canvas(QWidget):
         if tmp.shape[2] == 3:
             tmp = cv2.cvtColor(tmp,cv2.COLOR_BGR2BGRA)
         self.draw.setPixmap(ops.cvtCV2PixmapAlpha(tmp))
-        cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
+        # cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
         self.signal.emit()
         pass
     
     def chgCursor(self,tar=None):
-        if tar in ['Pencil','Line','Rect','Circle']:
+        if tar in ['pencil','line','rect','circle']:
             self.setCursor(Qt.CrossCursor)
-        elif tar == 'Dropper':
+        elif tar == 'dropper':
             self.setCursor(QCursor(QPixmap('./static/UI/dropper.png'),0,31))
-        elif tar == 'Fill':
+        elif tar == 'fill':
             self.setCursor(QCursor(QPixmap('./static/UI/fill-drip.png'),0,0))
-        elif tar == 'Brush':
+        elif tar == 'brush':
             self.setCursor(QCursor(ops.cvtCV2PixmapAlpha(self.brush.icon)))
-        elif tar == 'Vary':
+        elif tar == 'vary':
             self.setCursor(Qt.SizeAllCursor)
-        elif tar == 'Move':
+        elif tar == 'move':
             self.setCursor(Qt.OpenHandCursor)
         else:
             self.setCursor(Qt.ArrowCursor)
@@ -812,13 +818,9 @@ class Canvas(QWidget):
     def imgResize(self):
         rd = ResizeDialog('Canvas',self.layers.ImgInfo)
         if rd.exec_() == QDialog.Accepted:
-            settings = QSettings("tmp.ini", QSettings.IniFormat)
-            try:
-                w = eval(settings.value("width"))
-                h = eval(settings.value("height"))
-            except TypeError:
-                w = settings.value("width")
-                h = settings.value("height")
+            settings = utils.readTempIni()
+            w = int(settings["width"])
+            h = int(settings["height"])
             self.layers.reset(w,h)
             self.draw.resizeSelf(w,h)
             self.signal.emit()
@@ -828,13 +830,9 @@ class Canvas(QWidget):
     def canResize(self):
         rd = ResizeDialog('Canvas',self.layers.ImgInfo)
         if rd.exec_() == QDialog.Accepted:
-            settings = QSettings("tmp.ini", QSettings.IniFormat)
-            try:
-                w = eval(settings.value("width"))
-                h = eval(settings.value("height"))
-            except TypeError:
-                w = settings.value("width")
-                h = settings.value("height")
+            settings = utils.readTempIni()
+            w = int(settings["width"])
+            h = int(settings["height"])
             self.layers.resize(w,h)
             self.draw.resizeSelf(w,h)
             self.signal.emit()

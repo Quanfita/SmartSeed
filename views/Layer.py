@@ -8,7 +8,7 @@ from common.app import logger
 from core import ops
 from PyQt5.QtWidgets import (QListWidget,QListWidgetItem,QToolBox,QWidget,QLabel,
 							QVBoxLayout,QAbstractItemView,QGroupBox,QHBoxLayout,
-							QLineEdit,QComboBox,QToolButton,QInputDialog,QMessageBox)
+							QLineEdit,QComboBox,QToolButton,QInputDialog,QMessageBox,QMenu,QAction)
 from PyQt5.QtGui import QIcon,QFont,QDrag
 from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject,QSize,QMimeData,QItemSelectionModel
 
@@ -22,6 +22,7 @@ class ListWidget(QListWidget):
     signal = pyqtSignal()
     drag_signal = pyqtSignal([int,int])
     map_listwidget = []
+    out_signal = pyqtSignal(dict)
     def __init__(self,debug=False):
         super().__init__()
         self.__debug = debug
@@ -141,6 +142,7 @@ class ListWidget(QListWidget):
             if self.__debug:
                 logger.debug('List name:'+str(self.list_names))
                 logger.debug('Delete row:'+str(self.row(delitem)))
+            self.out_signal.emit({'data':{'index':self.row(delitem)},'type':'delete','togo':None})
             self.list_names.pop(self.row(delitem))
             del_item = self.takeItem(self.row(delitem))
             del del_item
@@ -243,13 +245,13 @@ class LayerMain(QWidget):
     it can change mixed functions for each layer, 
     and it can also set opacity for each layer.
     """
-    signal = pyqtSignal(dict)
-    refresh = pyqtSignal()
+    in_signal = pyqtSignal(dict)
+    out_signal = pyqtSignal(dict)
+    # refresh = pyqtSignal()
     def __init__(self,tabCanvas,debug=False):
         super().__init__()
         self.__debug = debug
         self.setStyleSheet('color:white;background-color:#535353;')
-        self.tab_canvas = tabCanvas
         self.currentIndex = 0
         self.lay = QVBoxLayout(self)
         self.lay.setContentsMargins(0,0,0,0)
@@ -258,7 +260,7 @@ class LayerMain(QWidget):
         self.layer_list = ListWidget(debug=self.__debug)
         self.layer_list.setStyleSheet('QListWidget{color:white;background-color:#535353;border:1px solid #282828;}')
         #self.layer_list.Data_init(QIcon(ops.cvtCV2Pixmap(cv2.copyMakeBorder(cv2.resize(self.tab_canvas.canvas.layers.Image,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200]))))
-        self.initWithLayerStack()
+        # self.initWithLayerStack()
         self.toolsBox = QGroupBox(self)
         self.toolsBox.setStyleSheet("QGroupBox{background-color:#535353;border:1px solid #282828;padding-left,padding-right:5px;padding-top,padding-bottom:2px;margin:0px;}"
                                     "QToolButton{background: transparent;border:none}")
@@ -351,10 +353,24 @@ class LayerMain(QWidget):
         self.layer_list.setCurrentRow(0)
         self.layer_list.drag_signal[int,int].connect(self.chgLayer)
         self.opacity_val.textChanged[str].connect(self.setOpacity)
-        self.tab_canvas.canvas.layers.signal.connect(self.refreshLayerIcon)
-        self.tab_canvas.canvas.changeRow[int].connect(self.changeRow)
-        self.tab_canvas.refresh.connect(self.initWithLayerStack)
+        self.in_signal[dict].connect(self.doMsg)
+        self.layer_list.out_signal[dict].connect(self.listwidgetMsg)
         self.show()
+
+    def listwidgetMsg(self, content):
+        logger.debug('LayerWidget send message: '+str(content))
+        if not content['togo']:
+            if content['type'] == 'new':
+                self.newLayer()
+            elif content['type'] == 'delete':
+                self.delLayer()
+            # elif content['type'] == ''
+        else:
+            pass
+
+    def doMsg(self, content):
+        logger.debug('LayerView request message: '+str(content))
+        self.initWithLayerStack(content['data']['layer'])
     '''
     def check(self):
         layers = self.tab_canvas.canvas.layers.layer_names
@@ -401,7 +417,7 @@ class LayerMain(QWidget):
             val = float(val[:-1])
         else:
             val = float(val)/100.0
-        self.tab_canvas.canvas.layers.setCurrentLayerOpacity(val)
+        # self.tab_canvas.canvas.layers.setCurrentLayerOpacity(val)
     
     def group(self):
         pass
@@ -412,36 +428,37 @@ class LayerMain(QWidget):
     def addMask(self):
         pass
     
-    def initWithLayerStack(self):
+    def initWithLayerStack(self, layer):
         self.layer_list.clear()
-        for item in self.tab_canvas.canvas.layers.layer[::-1]:
+        for item in layer.layer:
             font = QFont()
             font.setPointSize(10)
             tmp_item = QListWidgetItem(self.layer_list)
             tmp_item.setIcon(QIcon(item.icon))
             tmp_item.setFont(font)
-            if not item.layerName:
-                item.layerName = 'layer-1'
-            tmp_item.setText(item.layerName)
+            if not item.name:
+                item.name = 'layer-1'
+            tmp_item.setText(item.name)
             tmp_item.setTextAlignment(Qt.AlignCenter)
             self.layer_list.insertItemSlot(0,tmp_item)
-        lsize = len(self.tab_canvas.canvas.layers.layer)
+        lsize = len(layer.layer)
         if self.__debug:
             logger.debug('The layers name:'+str(self.layer_list.list_names))
-            logger.debug('Set current row:'+str(lsize - self.tab_canvas.canvas.layers.selectedLayerIndex - 1))
-        self.layer_list.setCurrentRow(lsize - self.tab_canvas.canvas.layers.selectedLayerIndex - 1)
+            logger.debug('Set current row:'+str(layer.selectedLayerIndex))
+        self.layer_list.setCurrentRow(layer.selectedLayerIndex)
         pass
     
     def chgLayer(self,start,end):
         lsize = len(self.layer_list)
         if self.__debug:
             logger.debug('Change layer from '+str(start)+' to '+str(end)+', total '+str(lsize)+' layers.')
-        self.tab_canvas.canvas.layers.exchgLayer(lsize - start - 1,lsize - end - 1)
+        # self.tab_canvas.canvas.layers.exchgLayer(lsize - start - 1,lsize - end - 1)
+        self.out_signal.emit({'data':{'start':start,'end':end},'type':'exchange','togo':'layer'})
         pass
     
     def changeRow(self,ind):
         lsize = len(self.layer_list)
-        self.layer_list.setCurrentRow(lsize - ind - 1)
+        self.layer_list.setCurrentRow(ind)
     
     def newLayer(self):
         cur = self.layer_list.currentItem()
@@ -460,21 +477,37 @@ class LayerMain(QWidget):
             elif newname[0] == '':
                 break
             else:
-                self.layer_list.addItemSlot(QIcon(ops.cvtCV2PixmapAlpha(self.tab_canvas.canvas.layers.background)),ind,newname[0])
-                self.tab_canvas.canvas.layers.addLayer(lsize - ind,newname[0])
-                self.refresh.emit()
+                # self.layer_list.addItemSlot(QIcon(ops.cvtCV2PixmapAlpha(self.tab_canvas.canvas.layers.background)),ind,newname[0])
+                # self.tab_canvas.canvas.layers.addLayer(lsize - ind,newname[0])
+                self.out_signal.emit({'data':{'index':ind,'name':newname[0]},'type':'newlayer','togo':'layer'})
                 break
         pass
     
-    def refreshLayerIcon(self):
-        cur = self.layer_list.currentItem()
-        ind = self.layer_list.row(cur)
-        lsize = len(self.layer_list)
-        if self.__debug:
-            logger.debug('current item:'+str(cur)+', index:'+str(ind)+', total length:'+str(lsize))
-        cur.icon = QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].icon)
+    # def refreshLayerIcon(self):
+    #     cur = self.layer_list.currentItem()
+    #     ind = self.layer_list.row(cur)
+    #     lsize = len(self.layer_list)
+    #     if self.__debug:
+    #         logger.debug('current item:'+str(cur)+', index:'+str(ind)+', total length:'+str(lsize))
+    #     cur.icon = QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].icon)
     
-    def addLayer(self,img,name):
+    # def addLayer(self,img,name):
+    #     if self.layer_list.count() == 0:
+    #         ind = 0
+    #     else:
+    #         cur = self.layer_list.currentItem()
+    #         ind = self.layer_list.row(cur)
+    #     lsize = len(self.layer_list)
+
+    #     # self.tab_canvas.canvas.layers.addLayer(lsize - ind,name,img)
+    #     if self.__debug:
+    #         logger.debug('Add Layer to:'+str(lsize-ind)+', view index:'+str(ind)+', name:'+name+', total '+str(len(self.layer_list.list_names))+' layers.')
+    #         # logger.debug([x.layerName for x in self.tab_canvas.canvas.layers.layer])
+    #     self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind].icon),ind,name)
+    #     self.layer_list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
+    #     self.refresh.emit()
+
+    def addLayer(self, layer):
         if self.layer_list.count() == 0:
             ind = 0
         else:
@@ -482,14 +515,13 @@ class LayerMain(QWidget):
             ind = self.layer_list.row(cur)
         lsize = len(self.layer_list)
 
-        self.tab_canvas.canvas.layers.addLayer(lsize - ind,name,img)
+        # self.tab_canvas.canvas.layers.addLayer(lsize - ind,name,img)
         if self.__debug:
-            logger.debug('Add Layer to:'+str(lsize-ind)+', view index:'+str(ind)+', name:'+name+', total '+str(len(self.tab_canvas.canvas.layers.layer))+' layers.')
-            logger.debug([x.layerName for x in self.tab_canvas.canvas.layers.layer])
-        self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind].icon),ind,name)
+            logger.debug('Add Layer to:'+str(lsize-ind)+', view index:'+str(ind)+', name:'+layer.layer[lsize - ind].name+', total '+str(len(self.layer_list.list_names))+' layers.')
+            # logger.debug([x.layerName for x in self.tab_canvas.canvas.layers.layer])
+        self.layer_list.addItemSlot(QIcon(layer.layer[lsize - ind].icon),ind,name)
         self.layer_list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
         self.refresh.emit()
-
     
     def delLayer(self):
         if not self.layer_list.selectedItems():
@@ -504,10 +536,10 @@ class LayerMain(QWidget):
                 cur = self.layer_list.currentItem()
                 ind = self.layer_list.row(cur)
                 lsize = len(self.layer_list)
-                self.layer_list.deleteItemSlot()
-                self.tab_canvas.canvas.layers.delLayer(lsize - ind - 1)
-                self.layer_list.setCurrentRow(ind-1,QItemSelectionModel.ClearAndSelect)
-                self.refresh.emit()
+                # self.layer_list.deleteItemSlot()
+                # self.tab_canvas.canvas.layers.delLayer(lsize - ind - 1)
+                self.out_signal.emit({'data':{'index':ind},'type':'dellayer','togo':'layer'})
+                # self.layer_list.setCurrentRow(ind-1,QItemSelectionModel.ClearAndSelect)
         pass
     
     def cpyLayer(self):
@@ -526,10 +558,11 @@ class LayerMain(QWidget):
                 else:
                     break
             lsize = len(self.layer_list)
-            self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].icon),ind,name)
-            self.tab_canvas.canvas.layers.cpyLayer(ind,name)
-            self.layer_list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
-            self.refresh.emit()
+            # self.layer_list.addItemSlot(QIcon(self.tab_canvas.canvas.layers.layer[lsize - ind - 1].icon),ind,name)
+            # self.tab_canvas.canvas.layers.cpyLayer(ind,name)
+            self.out_signal.emit({'data':{'index':ind,'name':name},'type':'cpylayer','togo':'layer'})
+            # self.layer_list.setCurrentRow(ind,QItemSelectionModel.ClearAndSelect)
+            # self.refresh.emit()
         pass
     
     def sltLayer(self):
@@ -539,13 +572,14 @@ class LayerMain(QWidget):
         
         #print(self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1])
         if self.__debug:
-            logger.debug('Select layer index:'+str(lsize-ind-1)+', lsize:'+str(lsize)+', ind:'+str(ind))
-        self.mix_combox.setCurrentText(self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1])
-        self.tab_canvas.canvas.layers.sltLayer(lsize - ind - 1)
-        self.tab_canvas.canvas.draw.setImageRect(self.tab_canvas.canvas.layers.currentImageObject().imageRect)
-        self.tab_canvas.canvas.draw.redraw()
+            logger.debug('Select layer index:'+str(ind)+', lsize:'+str(lsize)+', ind:'+str(ind))
+        # self.mix_combox.setCurrentText(self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1])
+        # self.tab_canvas.canvas.layers.sltLayer(lsize - ind - 1)
+        # self.tab_canvas.canvas.draw.setImageRect(self.tab_canvas.canvas.layers.currentImageObject().imageRect)
+        # self.tab_canvas.canvas.draw.redraw()
+        self.out_signal.emit({'data':{'index':ind},'type':'sltlayer','togo':'layer'})
         if ind  == lsize - 1:
-            self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1] = 'Normal'
+            # self.tab_canvas.canvas.layers.mix_list[lsize - ind - 1] = 'Normal'
             self.mix_combox.setCurrentText('Normal')
             self.mix_combox.setEnabled(False)
             self.opacity_val.setEnabled(False)
@@ -559,5 +593,6 @@ class LayerMain(QWidget):
         lsize = len(self.layer_list)
         #print(lsize,ind,lsize - ind - 1)
         if self.__debug:
-            logger.debug('Set mix:'+str(s)+'index:'+str(lsize - ind - 1))
-        self.tab_canvas.canvas.layers.setMix(lsize - ind - 1,s)
+            logger.debug('Set mix:'+str(s)+'index:'+str(ind))
+        # self.tab_canvas.canvas.layers.setMix(lsize - ind - 1,s)
+        self.out_signal.emit({'data':{'index': ind, 'mode':s},'type':'mix','togo':'layer'})

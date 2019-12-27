@@ -31,7 +31,7 @@ class Filter(object):
             for j in range(len(my[0])):
                 #pos = self.findPos(my[i][j],orimap)
                 #my[i][j] = newmap[pos[0],pos[1]]
-                my[i][j] = newmap[new[i,j,0],new[i,j,1]]
+                my[i][j][:3] = newmap[new[i,j,0],new[i,j,1]]
         
         return my.astype(np.uint8)
 
