@@ -206,6 +206,8 @@ class LayerStackList(QObject):
             content['callback'](self._now_stack.image)
         elif content['type'] == 'refresh':
             self._now_stack.image = content['data']['image']
+        elif content['type'] == 'getRect':
+            self.sendMsg({"data":{'rect':self._now_stack.getRectOfImage()},'type':'getRect','togo':'canvas'})
         if self.__debug:
             logger.debug(str(self._now_stack.layer_names))
             # ops.imsave()
@@ -374,7 +376,7 @@ class LayerStack(QObject):
         x2, y2 = img.getPositionOnCanvas()[0] + img.getCenterOfImage()[0], img.getPositionOnCanvas()[1] + img.getCenterOfImage()[1]
         img.setImageRect((x1,y1,x2,y2))
         '''
-        return img.getImageRect()
+        return img.imageRect
     
     def __str__(self):
         return self.__name

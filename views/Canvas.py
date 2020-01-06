@@ -4,7 +4,7 @@ Created on Tue Feb  5 16:12:17 2019
 
 @author: Quanfita
 """
-from PyQt5.QtWidgets import QLabel,QTabWidget,QWidget,QScrollArea,QVBoxLayout
+from PyQt5.QtWidgets import QLabel,QTabWidget,QWidget,QScrollArea,QVBoxLayout,QApplication
 from PyQt5.QtGui import QPainter, QPen, QColor,QPixmap,QPalette,QBrush,QCursor
 from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject
 from common.app import logger
@@ -138,7 +138,7 @@ class Draw(QLabel):
         # This function set a flag of the operation that would be done, 
         # and change the status of mouse tracking.
         self.type = tp
-        if self.type == 'Vary':
+        if self.type == 'vary':
             self._flag = True
         else:
             self._flag = False
@@ -172,7 +172,7 @@ class Draw(QLabel):
             self.painter.begin(self)
         self.pen = QPen(self.pencolor, self.thickness*self.__scale, self.linestyle)
         self.painter.setPen(self.pen)
-        if self.type == 'Pencil':
+        if self.type == 'pencil':
             if len(self.pos_xy) > 1:
                 self.point_start = self.pos_xy[0]
                 for pos_tmp in self.pos_xy:
@@ -188,22 +188,22 @@ class Draw(QLabel):
                     self.painter.drawLine(self.point_start[0], self.point_start[1], 
                                           self.point_end[0], self.point_end[1])
                     self.point_start = self.point_end
-        elif self.type == 'Line':
+        elif self.type == 'line':
             self.painter.drawLine(self.point_start[0],self.point_start[1],
                                   self.point_end[0],self.point_end[1])
-        elif self.type == 'Rect':
+        elif self.type == 'rect':
             self.painter.setBrush(self.brush)
             self.painter.drawRect(self.point_start[0],self.point_start[1],
                                   self.point_end[0] - self.point_start[0],
                                   self.point_end[1] - self.point_start[1])
-        elif self.type == 'Circle':
+        elif self.type == 'circle':
             self.painter.setBrush(self.brush)
             self.painter.drawEllipse(self.point_start[0],self.point_start[1],
                                   self.point_end[0] - self.point_start[0],
                                   self.point_end[1] - self.point_start[1])
-        elif self.type == 'Brush':
+        elif self.type == 'brush':
             pass
-        elif self.type == 'Vary':
+        elif self.type == 'vary':
             #print(self._rect)
             #tmp = [self.pencolor, self.thickness, self.linestyle]
             if self._flag:
@@ -229,85 +229,85 @@ class Draw(QLabel):
         super().mousePressEvent(event)
         self.flag = True
         #print(event.pos())
-        if self.type in ['Line','Rect','Circle']:
+        if self.type in ['line','rect','circle']:
             self.point_start = self.transform((event.pos().x(), event.pos().y()))
             self.point_end = self.transform((event.pos().x(), event.pos().y()))
             if QApplication.keyboardModifiers() == Qt.AltModifier:
                 #self.drop_signal.emit((event.pos().x(), event.pos().y()))
-                self.send_signal.emit({'mode':'Dropper','position':self.transform((event.pos().x(), event.pos().y()))})
-        elif self.type == 'Pencil':
+                self.send_signal.emit({'mode':'dropper','position':self.transform((event.pos().x(), event.pos().y()))})
+        elif self.type == 'pencil':
             self.pos_xy = []
             if QApplication.keyboardModifiers() == Qt.AltModifier:
                 #self.drop_signal.emit((event.pos().x(), event.pos().y()))
-                self.send_signal.emit({'mode':'Dropper','position':self.transform((event.pos().x(), event.pos().y()))})
-        elif self.type == 'Dropper':
+                self.send_signal.emit({'mode':self.type,'position':self.transform((event.pos().x(), event.pos().y()))})
+        elif self.type == 'dropper':
             #self.drop_signal.emit((event.pos().x(), event.pos().y()))
-            self.send_signal.emit({'mode':'Dropper','position':self.transform((event.pos().x(), event.pos().y()))})
-        elif self.type == 'Fill':
+            self.send_signal.emit({'mode':self.type,'position':self.transform((event.pos().x(), event.pos().y()))})
+        elif self.type == 'fill':
             #self.fill_signal.emit((event.pos().x(), event.pos().y(),(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha())))
-            self.send_signal.emit({'mode':'Fill','position':self.transform((event.pos().x(), event.pos().y())),'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
-        elif self.type == 'Vary':
+            self.send_signal.emit({'mode':self.type,'position':self.transform((event.pos().x(), event.pos().y())),'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
+        elif self.type == 'vary':
             self.point_start = self.transform((event.pos().x(), event.pos().y()))
             self.point_end = self.transform((event.pos().x(), event.pos().y()))
-            self.typechanged.emit({'type':'Vary','content':self.point_start})
+            self.typechanged.emit({'type':self.type,'content':self.point_start})
             #self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
-        elif self.type == 'Brush':
-            self.send_signal.emit({'mode':'Brush','type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
-        elif self.type == 'Zoom':
-            self.send_signal.emit({'mode':'Zoom','isplus':True})
-        elif self.type == 'Move':
+        elif self.type == 'brush':
+            self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
+        elif self.type == 'zoom':
+            self.send_signal.emit({'mode':self.type,'isplus':True})
+        elif self.type == 'move':
             self.point_start = self.transform((event.pos().x(), event.pos().y()))
             self.point_end = self.transform((event.pos().x(), event.pos().y()))
-            self.send_signal.emit({'mode':'Move','start':self.point_start,'end':self.point_end,'enter':False})
+            self.send_signal.emit({'mode':self.type,'start':self.point_start,'end':self.point_end,'enter':False})
     
     def mouseMoveEvent(self,event):
         super().mouseMoveEvent(event)
         if self.flag:
-            if self.type in ['Line','Rect','Circle']:
+            if self.type in ['line','rect','circle']:
                 if QApplication.keyboardModifiers() == Qt.ShiftModifier:
-                    if self.type == 'Line':
+                    if self.type == 'line':
                         self.point_end = self.transform((event.pos().x(),self.point_start[1]))
                     else:
                         tmp = min([int(event.pos().x()/self.__scale) - self.point_start[0],int(event.pos().y()/self.__scale) - self.point_start[1]])
                         self.point_end = (self.point_start[0] + tmp,self.point_start[1]+tmp)
                 else:
                     self.point_end = self.transform((event.pos().x(), event.pos().y()))
-            elif self.type == 'Pencil':
+            elif self.type == 'pencil':
                 pos_tmp = self.transform((event.pos().x(), event.pos().y()))
                 self.pos_xy.append(pos_tmp)
-            elif self.type == 'Vary':
+            elif self.type == 'vary':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
-                self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
-            elif self.type == 'Brush':
-                self.send_signal.emit({'mode':'Brush','type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
-            elif self.type == 'Move':
+                self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':False})
+            elif self.type == 'brush':
+                self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
+            elif self.type == 'move':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
-                self.send_signal.emit({'mode':'Move','start':self.point_start,'end':self.point_end,'enter':False})
+                self.send_signal.emit({'mode':self.type,'start':self.point_start,'end':self.point_end,'enter':False})
             self.update()
     
     def mouseReleaseEvent(self,event):
         super().mouseReleaseEvent(event)
         if self.flag:
-            if self.type in ['Line','Rect','Circle']:
+            if self.type in ['line','rect','circle']:
                 self.send_signal.emit({'mode':self.type,'point_start':self.point_start,'point_end':self.point_end,'pen_color':(self.__str_to_BGR(self.pencolor.name()[1:])),'thick':self.thickness,'brush_color':(self.__str_to_BGR(self.brush.name()[1:]))})
                 #self.signal.emit(self.type,self.point_start,self.point_end,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()),self.thickness,(self.__str_to_BGR(self.brush.name()[1:]),self.brush.alpha()))
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
-            elif self.type == 'Pencil':
+            elif self.type == 'pencil':
                 self.send_signal.emit({'mode':self.type,'point_list':self.pos_xy,'thick':self.thickness,'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
                 #self.signal_.emit(self.pos_xy,self.thickness,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()))
                 pos_test = (-1, -1)
                 self.pos_xy.append(pos_test)
                 self.pos_xy = []
-            elif self.type == 'Vary':
-                self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':True})
+            elif self.type == 'vary':
+                self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':True})
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
-            elif self.type == 'Brush':
-                self.send_signal.emit({'mode':'Brush','type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
-            elif self.type == 'Move':
+            elif self.type == 'brush':
+                self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
+            elif self.type == 'move':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
-                self.send_signal.emit({'mode':'Move','start':self.point_start,'end':self.point_end,'enter':True})
+                self.send_signal.emit({'mode':self.type,'start':self.point_start,'end':self.point_end,'enter':True})
             
             self.flag = False
             self.update()
@@ -368,7 +368,11 @@ class MutiCanvas(QTabWidget):
         self.tabCloseRequested.connect(self.removeTab)
         self.currentChanged.connect(self.selectCanvas)
         # self.newCanvas()
-    
+
+    def sendMsg(self, content):
+        logger.debug('Multiple Canvas request message: '+str(content))
+        self.out_signal.emit(content)
+
     def addCanvas(self,canvas):
         self.canvas = canvas
         self.addTab(self.canvas,self.canvas.canvasName)
@@ -389,6 +393,7 @@ class MutiCanvas(QTabWidget):
     
     def newCanvas(self):
         self.canvas = Canvas(parent=self,debug=self.__debug)
+        self.canvas.out_signal[dict].connect(self.sendMsg)
         self.canvasList.append(self.canvas)
         self.addTab(self.canvas,self.canvas.canvasName)
         #self.added.emit({'mode':'new'})
@@ -564,11 +569,18 @@ class Canvas(QWidget):
         self.draw.send_signal[dict].connect(self.taskDistribution)
         self.draw.typechanged[dict].connect(self.toolsInit)
         self.in_signal[dict].connect(self.doMsg)
-    
+
     def doMsg(self, content):
         logger.debug('Canvas request message: '+str(content))
         if content['type'] == 'resize':
             self.brush.resize(*content['data'])
+        elif content['type'] == 'getRect':
+            x1,y1,x2,y2 = content['data']['rect']
+            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            self.draw.repaint()
+            self.scroll.draw(self._rect)
+            self.scroll.repaint()
         else:
             layer = content['data']['layer']
             self.draw.resize(layer.width(),layer.height())
@@ -594,22 +606,25 @@ class Canvas(QWidget):
             self.scroll.ver.setValue(vVal)
     
     def toolsInit(self,content):
+        if self.__debug:
+            logger.debug('Tool inital: ' + str(content))
         _type = content['type']
         self.scroll.notShowRect()
         self.scroll.repaint()
-        if _type == 'Vary':
+        if _type == 'vary':
             self.scroll.showRect()
-            if content['content'] is not None:
-                self.changeRow.emit(self.layers.autoSelectClickedLayer(content['content']))
-            x1,y1,x2,y2 = self.layers.getRectOfImage()
-            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-            self.draw.repaint()
-            self.scroll.draw(self._rect)
-            self.scroll.repaint()
-        elif _type == 'Move':
+            # if content['content'] is not None:
+            #     self.changeRow.emit(self.layers.autoSelectClickedLayer(content['content']))
+            self.out_signal.emit({'data':{},'type':'getRect','togo':'layer'})
+            # x1,y1,x2,y2 = self.layers.getRectOfImage()
+            # self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            # self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            # self.draw.repaint()
+            # self.scroll.draw(self._rect)
+            # self.scroll.repaint()
+        elif _type == 'move':
             pass
-        elif _type == 'Brush':
+        elif _type == 'brush':
             self.brush.setSize(self.draw.thickness)
         self.chgCursor(_type)
     

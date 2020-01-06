@@ -380,43 +380,6 @@ class MainWindow(QMainWindow):
         dock = {'hist':self.hist, 'info':self.infoDock, 'layer':self.layer}
         for key in dock.keys():
             self.createDockWidget(key,dock[key])
-        # self.main_Fig = QDockWidget('Hist')  # 实例化dockwidget类
-        # self.main_Fig.setWidget(self.F)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        # #self.main_Fig.setObjectName("Figure")
-        # self.main_Fig.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
-        #                             'QDockWidget:title{color:#cdcdcd;background-color:#424242;border:1px solid #282828;}')
-        # self.main_Fig.setFeatures(self.main_Fig.DockWidgetFloatable|self.main_Fig.DockWidgetMovable|self.main_Fig.DockWidgetClosable)    #  设置dockwidget的各类属性
-        # self.main_Fig.setWindowFlags(Qt.FramelessWindowHint)
-        #self.main_Fig.setStyleSheet('QDockWidget{border: 1px solid black;}')
-        # self.addDockWidget(Qt.RightDockWidgetArea, self.main_Fig) 
-        # self.main_info = QDockWidget('Information')  # 实例化dockwidget类
-        # self.main_info.setWidget(self.info_lb)   # 带入的参数为一个QWidget窗体实例，将该窗体放入dock中
-        #self.main_info.setObjectName("Info")
-        # self.main_info.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
-        #                     'QDockWidget:title{color:#cdcdcd;background-color:#424242;border:1px solid #282828;}')
-        # self.main_info.setFeatures(self.main_info.DockWidgetFloatable|self.main_info.DockWidgetMovable|self.main_info.DockWidgetClosable)    #  设置dockwidget的各类属性
-        # self.addDockWidget(Qt.RightDockWidgetArea, self.main_info) 
-        # self.layer = LayerMain(self.mcanvas,debug=self.__debug)
-        #self.layer.refresh.connect(self.refreshShow)
-        #self.mcanvas.changed[int].connect(self.layer.setCurrentLayerStack)
-        #self.layer.setStyleSheet('color:white;background-color:#adadad;border:1px solid #adadad;')
-        # self.layer_dock = QDockWidget('Layer',self)
-        # self.layer_dock.setWidget(self.layer)
-        #self.layer.setStyleSheet('border:1px solid #adadad')
-        #self.layer_dock.setObjectName("Info")
-        # self.layer_dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
-        #                     'QDockWidget:title{color:#cdcdcd;background-color:#535353;border:1px solid #282828;}')
-        # self.layer_dock.setFeatures(self.layer_dock.DockWidgetFloatable|self.layer_dock.DockWidgetMovable|self.layer_dock.DockWidgetClosable)
-        # self.addDockWidget(Qt.RightDockWidgetArea, self.layer_dock)
-        # self.channel_dock = QDockWidget('Channel',self)
-        # self.channel_dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
-        #                     'QDockWidget:title{color:#cdcdcd;background-color:#535353;border:1px solid #282828;}')
-        # self.channel_dock.setFeatures(self.channel_dock.DockWidgetFloatable|self.channel_dock.DockWidgetMovable|self.channel_dock.DockWidgetClosable)
-        # tmp_widget = QWidget(self)
-        # self.layer_dock.setTitleBarWidget(tmp_widget)
-        # self.channel_dock.setTitleBarWidget(tmp_widget)
-        # self.addDockWidget(Qt.RightDockWidgetArea,self.channel_dock)
-        # self.tabifyDockWidget(self.channel_dock,self.layer_dock)
 
     def initSignals(self):
         self.mcanvas.canvas.out_signal[dict].connect(self.sendMsg)
@@ -466,6 +429,8 @@ class MainWindow(QMainWindow):
         elif name in self.filter_list:
             data = {'data':{'filter':name},'type':'filter','togo':'thread','callback':self.refreshShow}
             self.out_signal.emit(data)
+        elif name == 'getRect':
+            self.out_signal.emit(content)
 
     def refreshShow(self,imgobj=None):
         if self.__debug:
@@ -558,7 +523,8 @@ class MainWindow(QMainWindow):
             logger.debug('Choose tool:'+s)
         self.mcanvas.canvas.draw.chgType(s)
         self.disPre()
-        self.mcanvas.canvas.chgCursor(s)
+        # self.mcanvas.canvas.chgCursor(s)
+        # self.mcanvas.canvas.draw.chgType(s)
         # self.adj_b = AdjBlock(self.mcanvas.canvas.draw)
         # self.adj_b.setColorByName(self.frontcolor.name())
         #self.mcanvas.canvas.draw.ChangePenColor(self.frontcolor)
