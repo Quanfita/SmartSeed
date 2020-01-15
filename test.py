@@ -15,11 +15,12 @@ import os
 
 
 if __name__ == '__main__':
+	debug = True
 	logger.info('Start test.')
 	app = QApplication(sys.argv)
-	main = MainWindow(debug=True)
-	pth = ProThread(debug=True,parent=main)
-	layer = LayerStackList(debug=True)
+	main = MainWindow(debug=debug)
+	pth = ProThread(debug=debug,parent=main)
+	layer = LayerStackList(debug=debug)
 	trans = Transmission(main,pth,layer)
 	main.show()
 	sys.exit(app.exec_())

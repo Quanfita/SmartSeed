@@ -10,6 +10,7 @@ from termcolor import *
 from .singleton import SingletonIns
 
 import logging
+import threading
 import sys
 
 
@@ -18,7 +19,7 @@ class Logger(object):
 
     def __init__(self):
         init()
-
+        self.lock = threading.Lock()
         # 关于日志的书写只要有四个步骤：
         # （1）Loggers: 创建
         # （2）Handlers:把日志传送给合适的目标
@@ -53,6 +54,7 @@ class Logger(object):
         self.logger.addHandler(fh)
 
     def debug(self,log):
+        self.lock.acquire()
         try:
             raise Exception
         except:
@@ -61,9 +63,10 @@ class Logger(object):
         pos = '['+str(f.f_code.co_filename).split('\\')[-1]+']['+str(f.f_code.co_name)+']['+str(f.f_lineno)+']'
         self.printer.debug("["+colored('DEBUG','magenta')+"]"+pos+str(log))
         self.logger.debug(pos+str(log))
-        return
+        self.lock.release()
 
     def info(self,log):
+        self.lock.acquire()
         try:
             raise Exception
         except:
@@ -72,9 +75,10 @@ class Logger(object):
         pos = '['+str(f.f_code.co_filename).split('\\')[-1]+']['+str(f.f_code.co_name)+']['+str(f.f_lineno)+']'
         self.printer.info("["+colored('INFO','cyan')+"]"+pos+str(log))
         self.logger.info(pos+str(log))
-        return
+        self.lock.release()
 
     def warning(self,log):
+        self.lock.acquire()
         try:
             raise Exception
         except:
@@ -83,9 +87,10 @@ class Logger(object):
         pos = '['+str(f.f_code.co_filename).split('\\')[-1]+']['+str(f.f_code.co_name)+']['+str(f.f_lineno)+']'
         self.printer.warning("["+colored('WARNING','yellow')+"]"+pos+str(log))
         self.logger.warning(str(log))
-        return
+        self.lock.release()
 
     def error(self,log):
+        self.lock.acquire()
         try:
             raise Exception
         except:
@@ -94,9 +99,10 @@ class Logger(object):
         pos = '['+str(f.f_code.co_filename).split('\\')[-1]+']['+str(f.f_code.co_name)+']['+str(f.f_lineno)+']'
         self.printer.error("["+colored('ERROR','red')+"]"+pos+str(log))
         self.logger.error(pos+str(log))
-        return
+        self.lock.release()
 
     def critical(self,log):
+        self.lock.acquire()
         try:
             raise Exception
         except:
@@ -105,7 +111,7 @@ class Logger(object):
         pos = '['+str(f.f_code.co_filename).split('\\')[-1]+']['+str(f.f_code.co_name)+']['+str(f.f_lineno)+']'
         self.printer.critical("["+colored('CRITICAL','green')+"]"+pos+str(log))
         self.logger.critical(pos+str(log))
-        return
+        self.lock.release()
 
 if __name__ == '__main__':
     # 开始使用：不同等级会写入到屏幕和文件中

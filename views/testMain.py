@@ -398,12 +398,13 @@ class MainWindow(QMainWindow):
     def sendMsg(self, content={}):
         sender = self.sender()
         try:
-            logger.debug("Sender: "+str(sender))
+            if self.__debug:
+                logger.debug("Sender: "+str(sender))
             name = sender.text()
         except:
-            print(content)
             name = content['type']
-            logger.debug('MainWindow request message: '+str(name)+', '+str(content))
+            if self.__debug:
+                logger.debug('MainWindow request message: '+str(name)+', '+str(content))
         if name in ['Open','Import image']:
             if name == 'Open':
                 res = utils.openImage(self)

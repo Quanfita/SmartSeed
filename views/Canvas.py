@@ -157,7 +157,8 @@ class Draw(QLabel):
             self.repaint()
 
     def refresh(self, img):
-        logger.debug('refresh')
+        if self.__debug:
+            logger.debug('refresh')
         self.setStyleSheet('QLabel{border:1px solid #c00;}')
         self.setPixmap(ops.cvtCV2PixmapAlpha(img))
     
@@ -376,11 +377,11 @@ class MutiCanvas(QTabWidget):
             self.canvas.vary(content['data']['rect'])
 
     def sendMsg(self, content):
-        logger.debug('Multiple Canvas request message: '+str(content))
+        if self.__debug:
+            logger.debug('Multiple Canvas request message: '+str(content))
         self.out_signal.emit(content)
 
     def setFBColor(self, color):
-        print(color)
         self.canvas.draw.changePenColor(color)
 
     def addCanvas(self,canvas):
@@ -581,7 +582,8 @@ class Canvas(QWidget):
         self.in_signal[dict].connect(self.doMsg)
 
     def doMsg(self, content):
-        logger.debug('Canvas request message: '+str(content))
+        if self.__debug:
+            logger.debug('Canvas request message: '+str(content))
         if content['type'] == 'resize':
             self.brush.resize(*content['data'])
         elif content['type'] == 'getRect':
@@ -644,7 +646,7 @@ class Canvas(QWidget):
         content['center'] = self.draw.getCenterOfCanvas()
         if content['mode'] == 'vary':
             content['callback'] = self.vary
-        self.out_signal.emit({'data':content,'type':'draw','togo':'thread'})
+        self.out_signal.emit({'data':content,'type':'draw','togo':'layer'})
 
         # mode = content['mode']
         # if mode in ['Line','Rect','Circle']:
@@ -707,7 +709,7 @@ class Canvas(QWidget):
     
     def BezierCurve(self,p1,p2,p3,p4):
         t = np.linspace(0,1,5)
-        res = (p1*(1-t)**3)+(3*p2*t*(1-t)**2)+(3*p3*(1-t)*t**2)+(p4*t**3)
+        res = (p1*(1-t)**2)+(2*t*(1-t)*p2)+(p3*t**2)
         return res
     
     def brushDraw(self,pos,type_,color,size,is_start):

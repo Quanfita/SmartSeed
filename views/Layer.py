@@ -369,7 +369,8 @@ class LayerMain(QWidget):
             pass
 
     def doMsg(self, content):
-        logger.debug('LayerView request message: '+str(content))
+        if self.__debug:
+            logger.debug('LayerView request message: '+str(content))
         self.initWithLayerStack(content['data']['layer'])
     '''
     def check(self):

@@ -31,7 +31,7 @@ class ProThread(QThread):
     out_signal = pyqtSignal(dict)
     def __init__(self, debug=False, parent=None):
         super(ProThread, self).__init__()
-        self.debug = debug
+        self.__debug = debug
         self.tmp_img = None
         self._p_queue = []
         self.task_dict = {
@@ -54,21 +54,22 @@ class ProThread(QThread):
         self.wait()
 
     def addTask(self, content):
-        logger.debug('Process thread request message: '+str(content))
+        if self.__debug:
+            logger.debug('Process thread request message: '+str(content))
         self._p_queue.append(content)
     
     def changeMode(self, img, target, content=None):
         self.tmp_img = img
         self.target = target
         self.content = content
-        print(self.target)
+        # print(self.target)
     
     def run(self):
         #  do something
         content = self._p_queue.pop()
         self.target = content['type']
         self.tmp_img = content['data']['image']
-        layer_stack = content['data']['layer_stack']
+        self.layer_stack = content['data']['layer_stack']
         if self.target == 'draw':
             if content['data']['mode'] in ['line','rect','circle']:
                 self.draw_2Pix(content['data']['mode'],content['data']['point_start'],content['data']['point_end'],content['data']['pen_color'],content['data']['thick'],content['data']['brush_color'],content['data']['center'])
@@ -83,7 +84,7 @@ class ProThread(QThread):
         else:
             self.content = content['data']['filter']
             self.task_dict[self.target]()
-        if self.debug:
+        if self.__debug:
         	t = time.time()
         	logger.debug('Start do '+ self.target+'.')
 
@@ -123,11 +124,11 @@ class ProThread(QThread):
         #     self.SmartSharp()
         # else:
         #     return
-        if self.debug:
+        if self.__debug:
         	logger.debug('Process time:'+str(time.time() - t)+'.')
         self.out_signal.emit({'data':{'img':self.tmp_img},'type':'refresh','togo':None})
-        layer_stack.updateImg()
-        content['callback'](layer_stack.image)
+        self.layer_stack.updateImg()
+        content['callback'](self.layer_stack.image)
     
     def doFilter(self):
         _dict = {
@@ -143,7 +144,7 @@ class ProThread(QThread):
             'Old':'lookup-table_old.jpg',
             'Yellow':'lookup-table-yellow.png',
         }
-        print(TABLE_PATH+'/lookup-table.png')
+        # print(TABLE_PATH+'/lookup-table.png')
         ori = cv2.imread(TABLE_PATH+'/lookup-table.png')
         new = cv2.imread(TABLE_PATH+'/'+_dict[self.content])
         self.tmp_img.image = Filter().myFilter(ori,new,self.tmp_img.image)
@@ -170,7 +171,7 @@ class ProThread(QThread):
         imgObj = self.tmp_img
         if pos_list:
             tmp = ops.cvtCanPosAndLayerPos(pos_list[0],(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
-            print(pos_list)
+            # print(pos_list)
             for pos in pos_list:
                 pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
                 cv2.line(imgObj.image,tmp,pos,color[0],thick)
@@ -218,11 +219,12 @@ class ProThread(QThread):
     def varyImage(self,start,end,enter):
         last = self.tmp_img.getPositionOnCanvas()
         self.tmp_img.setPositionOnCanvasByDistance((end[0] - start[0], end[1] - start[1]))
+        self.layer_stack.updateImg()
         if not enter:
             self.tmp_img.setPositionOnCanvas(last)
         else:
             self.tmp_img.offset = (end[0] - start[0], end[1] - start[1])
-        # self.out_signal({"data":})
+        self.out_signal.emit({"data":{'rect':self.layer_stack.getRectOfImage()},'type':'getRect','togo':'canvas'})
 
     # def AWB(self):
     #     self.tmp_img = AWB(self.tmp_img)
