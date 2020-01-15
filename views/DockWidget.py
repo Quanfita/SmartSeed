@@ -4,7 +4,7 @@ Created on Tue Feb  5 16:12:17 2019
 
 @author: Quanfita
 """
-from PyQt5.QtWidgets import QLabel,QTabWidget,QWidget,QScrollArea,QPushButton
+from PyQt5.QtWidgets import QLabel,QTabWidget,QWidget,QScrollArea,QPushButton,QColorDialog
 from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject
 from core import ops
 
@@ -75,11 +75,11 @@ class FrontBackColor(QWidget):
     
     def changeFrontColor(self,color):
         self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
-        self.front_signal.emit({'front':color.name()})
+        self.signal.emit({'data':{'front':color},'type':'color'})
     
     def changeBackColor(self,color):
         self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
-        self.back_signal.emit({'back':color.name()})
+        self.signal.emit({'data':{'back':color},'type':'color'})
     
     def __setFrontColor(self):
         col = QColorDialog.getColor()

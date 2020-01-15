@@ -14,9 +14,13 @@ from core.Filter.Filter import Filter
 # from Op.Special.Ink import Ink
 # from Op.Special import Pencil
 from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtGui import QColor
 # from Op import Sharp
 # from Op import Blur
+from core import ops
 from common.app import logger
+from setting import TABLE_PATH
+import numpy as np
  
 class ProThread(QThread):
     """
@@ -64,11 +68,24 @@ class ProThread(QThread):
         content = self._p_queue.pop()
         self.target = content['type']
         self.tmp_img = content['data']['image']
-        self.content = content['data']['filter']
+        layer_stack = content['data']['layer_stack']
+        if self.target == 'draw':
+            if content['data']['mode'] in ['line','rect','circle']:
+                self.draw_2Pix(content['data']['mode'],content['data']['point_start'],content['data']['point_end'],content['data']['pen_color'],content['data']['thick'],content['data']['brush_color'],content['data']['center'])
+            elif content['data']['mode'] == 'pencil':
+                self.draw_NPix(content['data']['point_list'],content['data']['thick'],content['data']['color'],content['data']['center'])
+            elif content['data']['mode'] == 'fill':
+                self.fillColor(content['data']['position'],content['data']['color'],content['data']['center'])
+            elif content['data']['mode'] == 'dropper':
+                self.dropColor(content['data']['position'],content['data']['callback'])
+            elif content['data']['mode'] == 'vary':
+                self.varyImage(content['data']['start_position'],content['data']['end_position'],content['data']['enter'])
+        else:
+            self.content = content['data']['filter']
+            self.task_dict[self.target]()
         if self.debug:
         	t = time.time()
         	logger.debug('Start do '+ self.target+'.')
-        self.task_dict[self.target]()
 
         # if self.target == 'filter':
         #     self.doFilter()
@@ -109,7 +126,8 @@ class ProThread(QThread):
         if self.debug:
         	logger.debug('Process time:'+str(time.time() - t)+'.')
         self.out_signal.emit({'data':{'img':self.tmp_img},'type':'refresh','togo':None})
-        content['callback'](self.tmp_img)
+        layer_stack.updateImg()
+        content['callback'](layer_stack.image)
     
     def doFilter(self):
         _dict = {
@@ -125,11 +143,87 @@ class ProThread(QThread):
             'Old':'lookup-table_old.jpg',
             'Yellow':'lookup-table-yellow.png',
         }
-        ori = cv2.imread('./static/tables/lookup-table.png')
-        new = cv2.imread('./static/tables/'+_dict[self.content])
-        self.tmp_img = Filter().myFilter(ori,new,self.tmp_img)
+        print(TABLE_PATH+'/lookup-table.png')
+        ori = cv2.imread(TABLE_PATH+'/lookup-table.png')
+        new = cv2.imread(TABLE_PATH+'/'+_dict[self.content])
+        self.tmp_img.image = Filter().myFilter(ori,new,self.tmp_img.image)
         return
     
+    def draw_2Pix(self,mode,start,end,pencolor,thick,brush,center):
+        #print(mode,start,end,pencolor,thick,brush)
+        imgObj = self.tmp_img
+        start = ops.cvtCanPosAndLayerPos(start,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
+        end = ops.cvtCanPosAndLayerPos(end,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
+        #print(start,end)
+        if mode == 'line':
+            cv2.line(imgObj.image,start,end,pencolor,thick)
+        elif mode == 'rect':
+            if brush[-1] != 0:
+                cv2.rectangle(imgObj.image,start,end,brush,-1)
+            cv2.rectangle(imgObj.image,start,end,pencolor,thick)
+        elif mode == 'circle':
+            if brush[-1] != 0:
+                cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush,-1)
+            cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor,thick)
+
+    def draw_NPix(self,pos_list,thick,color,center):
+        imgObj = self.tmp_img
+        if pos_list:
+            tmp = ops.cvtCanPosAndLayerPos(pos_list[0],(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
+            print(pos_list)
+            for pos in pos_list:
+                pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
+                cv2.line(imgObj.image,tmp,pos,color[0],thick)
+                tmp = pos
+                #cv2.circle(self.layers.tmp_img,pos,thick,color[0],-1)
+
+    def dropColor(self,pos,callback):
+        #pos = ops.cvtCanPosAndLayerPos(pos,(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
+        # if self.tmp_img.mask[pos[1],pos[0]] == 0:
+        #     return
+        [b,g,r,a] = self.tmp_img.image[pos[1],pos[0]]
+        callback(QColor(r,g,b,a))
+        
+    def fillColor(self,pos,color,center,r=50):
+        #print(pos)
+        logger.debug('Position:'+str(pos)+', color:'+str(color)+', r:'+str(r))
+        imgObj = self.tmp_img
+        (x,y) = ops.cvtCanPosAndLayerPos((pos[0],pos[1]),(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
+        [b,g,r,_] = imgObj.image[y,x]
+        h,w = imgObj.image.shape[:2]
+        mask=np.zeros([h+2,w+2],np.uint8)
+        tmp = cv2.cvtColor(imgObj.image,cv2.COLOR_BGRA2BGR)
+        cv2.floodFill(tmp,mask,(x,y),color,(50,50,50),(50,50,50),cv2.FLOODFILL_FIXED_RANGE)
+        tmp = cv2.cvtColor(tmp,cv2.COLOR_BGR2BGRA)
+        tmp[:,:,3] = imgObj.image[:,:,3]
+        imgObj.image = tmp
+
+    # def zoom(self,isplus):
+    #     if isplus:
+    #         if int(self.scale) >= 100:
+    #             self.scale = min(self.scale + 100,1000)
+    #         else:
+    #             self.scale = min(self.scale*2,100)
+    #     else:
+    #         if int(self.scale) >= 200:
+    #             self.scale -= 100
+    #         elif int(self.scale) > 100:
+    #             self.scale = 100.0
+    #         else:
+    #             self.scale -= 0.5*self.scale
+    #     self.draw.setScale(self.scale/100.0)
+    #     self.scroll.setContentScale(self.scale/100.0)
+    #     self.imgOperate()
+    
+    def varyImage(self,start,end,enter):
+        last = self.tmp_img.getPositionOnCanvas()
+        self.tmp_img.setPositionOnCanvasByDistance((end[0] - start[0], end[1] - start[1]))
+        if not enter:
+            self.tmp_img.setPositionOnCanvas(last)
+        else:
+            self.tmp_img.offset = (end[0] - start[0], end[1] - start[1])
+        # self.out_signal({"data":})
+
     # def AWB(self):
     #     self.tmp_img = AWB(self.tmp_img)
     #     return

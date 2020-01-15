@@ -23,7 +23,8 @@ class Transmission(QWidget):
 
     def mainInterface(self, content):
         if content['togo'] == 'thread':
-            content['data']['image'] = self._layer._now_stack.image
+            content['data']['image'] = self._layer._now_stack.currentImageObject()
+            content['data']['layer_stack'] = self._layer._now_stack
             self._p_thread.in_signal.emit(content)
             self._p_thread.start()
         else:

@@ -398,10 +398,12 @@ class MainWindow(QMainWindow):
     def sendMsg(self, content={}):
         sender = self.sender()
         try:
+            logger.debug("Sender: "+str(sender))
             name = sender.text()
         except:
+            print(content)
             name = content['type']
-        logger.debug('MainWindow request message: '+str(name)+', '+str(content))
+            logger.debug('MainWindow request message: '+str(name)+', '+str(content))
         if name in ['Open','Import image']:
             if name == 'Open':
                 res = utils.openImage(self)
@@ -431,6 +433,13 @@ class MainWindow(QMainWindow):
             self.out_signal.emit(data)
         elif name == 'getRect':
             self.out_signal.emit(content)
+        elif name == 'draw':
+            content['callback'] = self.refreshShow
+            if content['data']['mode'] == 'dropper':
+                content['data']['callback'] = self.colorWidget.changeFrontColor
+            self.out_signal.emit(content)
+        elif name == 'color':
+            self.mcanvas.setFBColor(content['data']['front'])
 
     def refreshShow(self,imgobj=None):
         if self.__debug:

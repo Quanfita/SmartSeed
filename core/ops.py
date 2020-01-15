@@ -210,6 +210,10 @@ def makeIcon(image):
     icon = cv2.copyMakeBorder(icon,3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255])
     return cvtCV2PixmapAlpha(icon)
 
+def cvtRGBA2BGRA(RGBA):
+    r,g,b,a = RGBA
+    return (b,g,r,a)
+
 '''
 def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):
     (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)

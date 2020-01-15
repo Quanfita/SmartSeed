@@ -252,7 +252,7 @@ class Draw(QLabel):
             self.typechanged.emit({'type':self.type,'content':self.point_start})
             #self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
         elif self.type == 'brush':
-            self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
+            self.send_signal.emit({'mode':self.type,'type':None,'color':ops.cvtRGBA2BGRA(self.pencolor.getRgb()),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
         elif self.type == 'zoom':
             self.send_signal.emit({'mode':self.type,'isplus':True})
         elif self.type == 'move':
@@ -279,7 +279,7 @@ class Draw(QLabel):
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
                 self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':False})
             elif self.type == 'brush':
-                self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
+                self.send_signal.emit({'mode':self.type,'type':None,'color':ops.cvtRGBA2BGRA(self.pencolor.getRgb()),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
             elif self.type == 'move':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
                 self.send_signal.emit({'mode':self.type,'start':self.point_start,'end':self.point_end,'enter':False})
@@ -289,22 +289,22 @@ class Draw(QLabel):
         super().mouseReleaseEvent(event)
         if self.flag:
             if self.type in ['line','rect','circle']:
-                self.send_signal.emit({'mode':self.type,'point_start':self.point_start,'point_end':self.point_end,'pen_color':(self.__str_to_BGR(self.pencolor.name()[1:])),'thick':self.thickness,'brush_color':(self.__str_to_BGR(self.brush.name()[1:]))})
+                self.send_signal.emit({'mode':self.type,'point_start':self.point_start,'point_end':self.point_end,'pen_color':ops.cvtRGBA2BGRA(self.pencolor.getRgb()),'thick':self.thickness,'brush_color':ops.cvtRGBA2BGRA(self.brush.getRgb())})
                 #self.signal.emit(self.type,self.point_start,self.point_end,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()),self.thickness,(self.__str_to_BGR(self.brush.name()[1:]),self.brush.alpha()))
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
             elif self.type == 'pencil':
-                self.send_signal.emit({'mode':self.type,'point_list':self.pos_xy,'thick':self.thickness,'color':(self.__str_to_BGR(self.pencolor.name()[1:]))})
+                self.send_signal.emit({'mode':self.type,'point_list':self.pos_xy,'thick':self.thickness,'color':ops.cvtRGBA2BGRA(self.pencolor.getRgb())})
                 #self.signal_.emit(self.pos_xy,self.thickness,(self.__str_to_BGR(self.pencolor.name()[1:]),self.pencolor.alpha()))
-                pos_test = (-1, -1)
-                self.pos_xy.append(pos_test)
+                #pos_test = (-1, -1)
+                #self.pos_xy.append(pos_test)
                 self.pos_xy = []
             elif self.type == 'vary':
                 self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':True})
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
             elif self.type == 'brush':
-                self.send_signal.emit({'mode':self.type,'type':None,'color':(self.__str_to_BGR(self.pencolor.name()[1:])),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
+                self.send_signal.emit({'mode':self.type,'type':None,'color':ops.cvtRGBA2BGRA(self.pencolor.getRgb()),'size':self.thickness,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
             elif self.type == 'move':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
                 self.send_signal.emit({'mode':self.type,'start':self.point_start,'end':self.point_end,'enter':True})
@@ -314,7 +314,8 @@ class Draw(QLabel):
             self.cleanAllPoints()
     
     def changePenColor(self, color):
-        self.penColor = color
+        logger.debug('Change pen color: '+str(color.getRgb()))
+        self.pencolor = color
     
     def changePenThickness(self, thickness=10):
         self.thickness = thickness
@@ -340,9 +341,9 @@ class Draw(QLabel):
         # Reset the size of canvas
         self.resize(w,h)
     
-    def changeBlockColor(self,b,g,r):
-        # This function used to change pushbutton color which is in the toolbar widget.
-        self.color_signal.emit(b,g,r)
+    # def changeBlockColor(self,b,g,r):
+    #     # This function used to change pushbutton color which is in the toolbar widget.
+    #     self.color_signal.emit(b,g,r)
 
 class MutiCanvas(QTabWidget):
     """
@@ -367,11 +368,20 @@ class MutiCanvas(QTabWidget):
         self.setAutoFillBackground(True)
         self.tabCloseRequested.connect(self.removeTab)
         self.currentChanged.connect(self.selectCanvas)
+        self.in_signal[dict].connect(self.doMsg)
         # self.newCanvas()
+
+    def doMsg(self, content):
+        if content['type'] == 'getRect':
+            self.canvas.vary(content['data']['rect'])
 
     def sendMsg(self, content):
         logger.debug('Multiple Canvas request message: '+str(content))
         self.out_signal.emit(content)
+
+    def setFBColor(self, color):
+        print(color)
+        self.canvas.draw.changePenColor(color)
 
     def addCanvas(self,canvas):
         self.canvas = canvas
@@ -631,7 +641,10 @@ class Canvas(QWidget):
     def taskDistribution(self,content):
         if self.__debug:
             logger.debug('Content:'+str(content))
-        self.out_signal.emit(content)
+        content['center'] = self.draw.getCenterOfCanvas()
+        if content['mode'] == 'vary':
+            content['callback'] = self.vary
+        self.out_signal.emit({'data':content,'type':'draw','togo':'thread'})
 
         # mode = content['mode']
         # if mode in ['Line','Rect','Circle']:
@@ -657,6 +670,13 @@ class Canvas(QWidget):
         #     self.movement(content['start'],content['end'],content['enter'])
         # else:
         #     return
+    def vary(self,rect):
+        x1,y1,x2,y2 = rect
+        self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+        self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+        self.scroll.draw(self._rect)
+        self.scroll.repaint()
+
     
     def zoom(self,isplus):
         if isplus:
