@@ -6,6 +6,7 @@ Created on Sun Jan 27 10:39:53 2019
 """
 import numpy as np
 import cv2
+import math
 from core import ops
 from common.app import logger
 from core.Mixed import Mixed
@@ -186,26 +187,26 @@ class LayerStackList(QObject):
         if content['type'] == 'Open':
             self.newStack(content)
             self.out_signal.emit({'data':{'layer':self._now_stack},'type':'new','togo':'all'})
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'Import image':
             self._now_stack.addLayer(-1, content['data']['image_name'], content['data']['image'].image)
         elif content['type'] == 'exchange':
             self._now_stack.exchgLayer(content['data']['start'],content['data']['end'])
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'dellayer':
             self._now_stack.delLayer(content['data']['index'])
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'newlayer':
             self._now_stack.addLayer(content['data']['index'],content['data']['name'])
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'cpylayer':
             self._now_stack.cpyLayer(content['data']['index'],content['data']['name'])
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'sltlayer':
             self._now_stack.sltLayer(content['data']['index'])
-            content['callback'](self._now_stack.image)
+            content['callback'](self._now_stack.shown_image)
         elif content['type'] == 'refresh':
-            self._now_stack.image = content['data']['image']
+            self._now_stack.shown_image = content['data']['image']
         elif content['type'] == 'getRect':
             self.sendMsg({"data":{'rect':self._now_stack.getRectOfImage()},'type':'getRect','togo':'canvas'})
         elif content['type'] == 'draw':
@@ -219,7 +220,13 @@ class LayerStackList(QObject):
                 self._now_stack.dropColor(content['data']['position'],content['data']['callback'])
             elif content['data']['mode'] == 'vary':
                 self._now_stack.varyImage(content['data']['start_position'],content['data']['end_position'],content['data']['enter'])
-            content['callback'](self._now_stack.image)
+            elif content['data']['mode'] == 'brush':
+                self._now_stack.brushDraw(content['data']['position'],content['data']['brush'],content['data']['center'],content['data']['is_start'])
+            elif content['data']['mode'] == 'zoom':
+                self._now_stack.scale = content['data']['scale']
+                content['data']['callback'](self._now_stack.shown_image)
+                self._now_stack.updateImg()
+            content['callback'](self._now_stack.shown_image)
         if self.__debug:
             logger.debug(str(self._now_stack.layer_names))
             # ops.imsave()
@@ -311,6 +318,7 @@ class LayerStack(QObject):
         self.layer = []
         self.layer_names = []
         self.mix_list = []
+        self.__scale = 100.0
         # if init is not None:
         #     self.flag = True
         #     self.image = init
@@ -349,6 +357,7 @@ class LayerStack(QObject):
     def init(self, content):
         self.image = content['data']['image'].image
         self.tmp_img = self.image
+        self.shown_image = np.copy(self.image)
         self.__width,self.__height = content['data']['size']
         self.__name = content['data']['image_name']
         self.background = ops.drawBackground(self.__width,self.__height)
@@ -360,6 +369,14 @@ class LayerStack(QObject):
         self.mix_list.insert(0,'Normal')
         self.__remix()
         self.selectedLayerIndex = 0
+
+    @property
+    def scale(self):
+        return self.__scale
+
+    @scale.setter
+    def scale(self, scale):
+        self.__scale = scale
 
     def resetBackground(self,w,h):
         self.background = ops.drawBackground(w,h)
@@ -394,7 +411,7 @@ class LayerStack(QObject):
         return self.__name
 
     def __getVisibleArea(self,img):
-        tmp = np.copy(self.background)
+        tmp = np.zeros((self.__height,self.__width,4),dtype=np.uint8)
         mask = np.zeros((self.__height,self.__width),dtype=np.uint8)
         if self.__debug:
             logger.debug('Position of Canvas: '+str(img.getPositionOnCanvas())+', Center of image: '+str(img.getCenterOfImage()))
@@ -668,11 +685,22 @@ class LayerStack(QObject):
             # self.image = self.image[:,:,:3]*self.__mask+tmp*cv2.bitwise_not(mask)
             self.image = cv2.addWeighted(self.image,self.layer[i].opacity,tmp,1 - self.layer[i].opacity,0)
         # self.image = cv2.addWeighted(self.image,self.layer[-1].opacity,self.background,1 - self.layer[-1].opacity,0)
-        mask_inv = cv2.bitwise_not(self.__mask)
-        fg = cv2.bitwise_and(self.image,self.image,mask = self.__mask)
+        self.showImage()
+
+    def showImage(self):
+        image = cv2.resize(self.image,
+                    (0,0),fx=self.scale/100, fy=self.scale/100,
+                    interpolation=cv2.INTER_NEAREST)
+        mask = cv2.resize(self.__mask,
+                    (0,0),fx=self.scale/100, fy=self.scale/100,
+                    interpolation=cv2.INTER_NEAREST)
+        self.resetBackground(int(self.__width*self.scale/100),int(self.__height*self.scale/100))
+        mask_inv = cv2.bitwise_not(mask)
+        fg = cv2.bitwise_and(image,image,mask = mask)
         bg = cv2.bitwise_and(self.background,self.background,mask = mask_inv)
-        self.image = cv2.add(fg,bg)
-        #cv2.imwrite('error.jpg',self.image)
+        self.shown_image = cv2.add(fg,bg)
+        # cv2.imwrite('error.jpg',self.image)
+        print(self.image.shape,self.__mask.shape,self.tmp_img.shape,self.shown_image.shape)
         self.signal.emit()
 
     @property
@@ -724,15 +752,15 @@ class LayerStack(QObject):
         end = ops.cvtCanPosAndLayerPos(end,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
         #print(start,end)
         if mode == 'line':
-            cv2.line(imgObj.image,start,end,pencolor,thick)
+            cv2.line(imgObj.image,start,end,pencolor,thick,cv2.LINE_AA)
         elif mode == 'rect':
             if brush[-1] != 0:
-                cv2.rectangle(imgObj.image,start,end,brush,-1)
-            cv2.rectangle(imgObj.image,start,end,pencolor,thick)
+                cv2.rectangle(imgObj.image,start,end,brush,-1,cv2.LINE_AA)
+            cv2.rectangle(imgObj.image,start,end,pencolor,thick,cv2.LINE_AA)
         elif mode == 'circle':
             if brush[-1] != 0:
-                cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush,-1)
-            cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor,thick)
+                cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush,-1,cv2.LINE_AA)
+            cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor,thick,cv2.LINE_AA)
         self.updateImg()
 
     def draw_NPix(self,pos_list,thick,color,center):
@@ -742,7 +770,7 @@ class LayerStack(QObject):
             # print(pos_list)
             for pos in pos_list:
                 pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
-                cv2.line(imgObj.image,tmp,pos,color[0],thick)
+                cv2.line(imgObj.image,tmp,pos,color,thick,cv2.LINE_AA)
                 tmp = pos
                 #cv2.circle(self.layers.tmp_img,pos,thick,color[0],-1)
         self.updateImg()
@@ -769,23 +797,6 @@ class LayerStack(QObject):
         imgObj.image = tmp
         self.updateImg()
 
-    # def zoom(self,isplus):
-    #     if isplus:
-    #         if int(self.scale) >= 100:
-    #             self.scale = min(self.scale + 100,1000)
-    #         else:
-    #             self.scale = min(self.scale*2,100)
-    #     else:
-    #         if int(self.scale) >= 200:
-    #             self.scale -= 100
-    #         elif int(self.scale) > 100:
-    #             self.scale = 100.0
-    #         else:
-    #             self.scale -= 0.5*self.scale
-    #     self.draw.setScale(self.scale/100.0)
-    #     self.scroll.setContentScale(self.scale/100.0)
-    #     self.imgOperate()
-    
     def varyImage(self,start,end,enter):
         last = self.currentImageObject().getPositionOnCanvas()
         self.currentImageObject().setPositionOnCanvasByDistance((end[0] - start[0], end[1] - start[1]))
@@ -797,12 +808,28 @@ class LayerStack(QObject):
         self.out_signal.emit({"data":{'rect':self.getRectOfImage()},'type':'getRect','togo':'canvas'})
         # self.updateImg()
 
-    def brushDraw(self,pos,brush,center):
+    def brushDraw(self,pos,brush,center,is_start):
+        def draw(img,position,brush):
+            if img.shape[2] == 3:
+                img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
+            elif len(img.shape) == 2:
+                img = cv2.cvtColor(img,cv2.COLOR_GRAY2BGRA)
+            r = (brush.size+1)//2
+            img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:] = brush.veins + cv2.bitwise_and(img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:],img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:],mask = cv2.bitwise_not(brush.veins_mask))
+            # tmp_shape = cv2.resize(brush.veins,(imageROI.shape[1],imageROI.shape[0]))
+            # gray = cv2.cvtColor(tmp_shape,cv2.COLOR_RGBA2GRAY)
+            # ret,mask = cv2.threshold(gray,100,255,cv2.THRESH_BINARY)
+            # mask_inv = cv2.bitwise_not(mask)
+            # img1_bg = cv2.bitwise_and(imageROI,imageROI,mask = mask_inv)
+            # img2_fg = cv2.bitwise_and(tmp_shape,tmp_shape,mask = mask)
+            # img[position[1] - r:position[1] + r,position[0] - r:position[0] + r,:] = cv2.add(img1_bg,img2_fg)
+            return img
         imgObj = self.currentImageObject()
         pos = ops.cvtCanPosAndLayerPos(pos,(0,0),imgObj.getCenterOfImage(),center)
-        point_list = self._get_points(pos)
-        for point in point_list:
-            imgObj.image = self.brush.draw(imgObj.image, point)
+        if not is_start:
+            point_list = self._get_points(pos)
+            for point in point_list:
+                imgObj.image = draw(imgObj.image, point, brush)
         self.updateImg()
         self.tmp_pos = pos
 

@@ -214,6 +214,10 @@ def cvtRGBA2BGRA(RGBA):
     r,g,b,a = RGBA
     return (b,g,r,a)
 
+def cvtBGRA2RGBA(BGRA):
+    b,g,r,a = BGRA
+    return (r,g,b,a)
+
 '''
 def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):
     (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
