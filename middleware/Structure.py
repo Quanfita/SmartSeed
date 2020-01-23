@@ -220,12 +220,12 @@ class LayerStackList(QObject):
                 self._now_stack.dropColor(content['data']['position'],content['data']['callback'])
             elif content['data']['mode'] == 'vary':
                 self._now_stack.varyImage(content['data']['start_position'],content['data']['end_position'],content['data']['enter'])
-            elif content['data']['mode'] == 'brush':
+            elif content['data']['mode'] in ['brush','eraser']:
                 self._now_stack.brushDraw(content['data']['position'],content['data']['brush'],content['data']['center'],content['data']['is_start'])
             elif content['data']['mode'] == 'zoom':
                 self._now_stack.scale = content['data']['scale']
-                content['data']['callback'](self._now_stack.shown_image)
                 self._now_stack.updateImg()
+                content['data']['callback'](self._now_stack.shown_image)
             content['callback'](self._now_stack.shown_image)
         if self.__debug:
             logger.debug(str(self._now_stack.layer_names))
@@ -685,6 +685,7 @@ class LayerStack(QObject):
             # self.image = self.image[:,:,:3]*self.__mask+tmp*cv2.bitwise_not(mask)
             self.image = cv2.addWeighted(self.image,self.layer[i].opacity,tmp,1 - self.layer[i].opacity,0)
         # self.image = cv2.addWeighted(self.image,self.layer[-1].opacity,self.background,1 - self.layer[-1].opacity,0)
+        
         self.showImage()
 
     def showImage(self):
@@ -694,12 +695,14 @@ class LayerStack(QObject):
         mask = cv2.resize(self.__mask,
                     (0,0),fx=self.scale/100, fy=self.scale/100,
                     interpolation=cv2.INTER_NEAREST)
-        self.resetBackground(int(self.__width*self.scale/100),int(self.__height*self.scale/100))
+        self.resetBackground(image.shape[1],image.shape[0])
         mask_inv = cv2.bitwise_not(mask)
         fg = cv2.bitwise_and(image,image,mask = mask)
+        print(image.shape,mask.shape,self.background.shape,mask_inv.shape,type(self.background),type(mask_inv))
         bg = cv2.bitwise_and(self.background,self.background,mask = mask_inv)
         self.shown_image = cv2.add(fg,bg)
-        # cv2.imwrite('error.jpg',self.image)
+        cv2.imwrite('error.jpg',self.image)
+        cv2.imwrite('error_show.jpg',self.shown_image)
         print(self.image.shape,self.__mask.shape,self.tmp_img.shape,self.shown_image.shape)
         self.signal.emit()
 

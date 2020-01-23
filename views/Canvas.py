@@ -30,9 +30,11 @@ class Brush(QObject):
         self.__random = 0
         self.__size = 10
         self.__color = color
+        self.__isEraser = False
         self.veins = ops.resize(self.texture,self.__size,self.__size)
         self.__mask = self.texture[:,:,-1]
         self.veins_mask = self.veins[:,:,-1]
+        self.icon = np.copy(self.veins)
     
     def setColor(self,color):
         self.__color = color
@@ -45,6 +47,13 @@ class Brush(QObject):
     @size.setter
     def size(self,size):
         self.__size = size
+    
+    def chmod(self, isEraser):
+        self.__isEraser = isEraser
+        if self.__isEraser:
+            self.veins[:,:,-1] = 0
+        else:
+            self.veins[:,:,-1] = self.veins_mask
 
     @property
     def mask(self):
@@ -146,6 +155,9 @@ class Draw(QLabel):
             self._flag = False
         if self.type == 'brush':
             self.brush.setColor(self.pencolor)
+            self.brush.chmod(False)
+        elif self.type == 'eraser':
+            self.brush.chmod(True)
         self.typechanged.emit({'type':self.type,'content':None})
         '''
         if self.type in ['Line','Rect','Circle']:
@@ -206,7 +218,7 @@ class Draw(QLabel):
             self.painter.drawEllipse(self.point_start[0],self.point_start[1],
                                   self.point_end[0] - self.point_start[0],
                                   self.point_end[1] - self.point_start[1])
-        elif self.type == 'brush':
+        elif self.type in ['brush','eraser']:
             pass
         elif self.type == 'vary':
             #print(self._rect)
@@ -256,7 +268,7 @@ class Draw(QLabel):
             self.point_end = self.transform((event.pos().x(), event.pos().y()))
             self.typechanged.emit({'type':self.type,'content':self.point_start})
             #self.send_signal.emit({'mode':'Vary','start_position':self.point_start,'end_position':self.point_end,'enter':False})
-        elif self.type == 'brush':
+        elif self.type in ['brush','eraser']:
             self.send_signal.emit({'mode':self.type,'brush':self.brush,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':True})
         elif self.type == 'zoom':
             self.send_signal.emit({'mode':self.type,'isplus':True})
@@ -284,7 +296,7 @@ class Draw(QLabel):
             elif self.type == 'vary':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
                 self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':False})
-            elif self.type == 'brush':
+            elif self.type in ['brush','eraser']:
                 self.send_signal.emit({'mode':self.type,'brush':self.brush,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
             elif self.type == 'move':
                 self.point_end = self.transform((event.pos().x(), event.pos().y()))
@@ -309,7 +321,7 @@ class Draw(QLabel):
                 self.send_signal.emit({'mode':self.type,'start_position':self.point_start,'end_position':self.point_end,'enter':True})
                 self.point_start = (-1,-1)
                 self.point_end = (-1,-1)
-            elif self.type == 'brush':
+            elif self.type in ['brush','eraser']:
                 self.send_signal.emit({'mode':self.type,'brush':self.brush,'position':self.transform((event.pos().x(), event.pos().y())),'is_start':False})
             elif self.type == 'move':
                 self.setCursor(Qt.OpenHandCursor)
@@ -650,7 +662,7 @@ class Canvas(QWidget):
         elif content['mode'] == 'zoom':
             if content['isplus']:
                 if int(self.scale) >= 100:
-                    self.scale = min(self.scale + 50,300)
+                    self.scale = min(self.scale + 100,800)
                 else:
                     self.scale = min(self.scale*2,100)
             else:
@@ -701,6 +713,8 @@ class Canvas(QWidget):
             self.setCursor(QCursor(QPixmap('./static/UI/fill-drip.png'),0,0))
         elif tar == 'brush':
             self.setCursor(QCursor(ops.cvtCV2PixmapAlpha(self.draw.brush.veins)))
+        elif tar == 'eraser':
+            self.setCursor(QCursor(ops.cvtCV2PixmapAlpha(self.draw.brush.veins)))
         elif tar == 'vary':
             self.setCursor(Qt.SizeAllCursor)
         elif tar == 'move':
@@ -744,12 +758,14 @@ class Canvas(QWidget):
 
     
     def zoom(self,img):
-        w,h = self.draw.width(),self.draw.height()
-        pix = self.draw.pixmap()
+        # w,h = self.draw.width(),self.draw.height()
+        # pix = self.draw.pixmap()
         if self.__debug:
             logger.debug("Scale: "+str(self.scale))
         self.draw.setScale(self.scale/100.0)
-        self.draw.resize(int(w*(self.scale/100)),int(h*(self.scale/100)))
+        # self.draw.resize(int(w*(self.scale/100)),int(h*(self.scale/100)))
+        print(img.shape)
+        self.draw.resize(img.shape[1],img.shape[0])
         self.draw.setPixmap(ops.cvtCV2PixmapAlpha(img))
         self.scroll.setContentScale(self.scale/100.0)
         self.draw.redraw()

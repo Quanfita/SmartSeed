@@ -5,21 +5,17 @@ Created on Sat Nov 24 16:30:12 2018
 @author: Admin
 """
 
-from Op.Paint.config import *
+from .config import *
 
 import os
 import cv2
 import datetime
 import numpy as np
 
-from Op.Paint.ai import *
-from Op.Paint.tricks import *
+from .ai import *
+from .tricks import *
 
-def handle_sketch_upload_pool(imgname,room_path='./tmp'):
-    method = 'recolorization'
-    #print(room_path + '/sketch.original.jpg')
-    #sketch = cv2.imread(room_path + '/sketch.original.jpg')
-    sketch = imgname
+def sketch_upload(sketch,method='colorization',room_path='./tmp'):
     if os.path.exists(room_path + '/tmp.improved.jpg'):
         improved_sketch = cv2.imread(room_path + '/tmp.improved.jpg')
         #print('lucky to find improved sketch')
@@ -54,22 +50,13 @@ def handle_sketch_upload_pool(imgname,room_path='./tmp'):
     return
 
 
-def handle_painting_pool(imgname,hasReference=False,alpha=0.5,room_path='./tmp'):
-    points = []
+def painting(imgname,reference=None,points=[],alpha=0,method='colorization',line = False,lineColor=np.array([0,0,0]),room_path='./tmp'):
     ID = datetime.datetime.now().strftime('H%HM%MS%S')
-    method = 'colorization'
-    line = False
-    if hasReference:
-        reference = cv2.imread('./reference.jpg')
-        #reference = from_png_to_jpg(get_request_image('reference'))
-        #cv2.imwrite(room_path + '/reference.' + name + '.' + ID + '.jpg', reference)
+    if reference is not None:
         reference = s_enhance(reference)
-        #print("Load Reference Successful!")
     else:
         reference = None
-    lineColor = np.array([0,0,0])
     sketch = cv2.imread(room_path + '/tmp.' + method + '.jpg', cv2.IMREAD_GRAYSCALE)
-    #print('processing painting in ' + room_path)
     sketch_1024 = k_resize(sketch, 64)
     if os.path.exists(room_path + '/tmp.de_painting.jpg') and method == 'rendering':
         vice_sketch_1024 = k_resize(cv2.imread(room_path + '/tmp.de_painting.jpg', cv2.IMREAD_GRAYSCALE), 64)
@@ -108,19 +95,16 @@ def handle_painting_pool(imgname,hasReference=False,alpha=0.5,room_path='./tmp')
     )
     result = go_tail(result)
     cv2.imwrite(room_path + '/result.tmp.' + ID + '.jpg', result)
-    #cv2.imwrite('results/' + name + '.' + ID + '.jpg', result)
-    #cv2.imwrite(output,result)
-    #cv2.imwrite(room_path + '/icon.' + ID + '.jpg', max_resize(result, 128))
     return result
 
-def Painter(imgname,hasReference=False,alpha=0.5,room_path='./tmp'):
+def run(imgname,reference=None,alpha=0.5,method='colorization',lineColor=np.array([0,0,0]),room_path='./tmp'):
     h,w,c = imgname.shape
-    handle_sketch_upload_pool(imgname,room_path=room_path)
-    tmp = handle_painting_pool(imgname,hasReference=hasReference,alpha=alpha)
+    sketch_upload(imgname,method='colorization',room_path=room_path)
+    tmp = painting(imgname,points=points,method=method,reference=reference,alpha=alpha,lineColor=lineColor)
     tmp = cv2.resize(tmp,(w,h))
     return tmp.astype(np.uint8)
 
 if __name__ == '__main__':
     inputname = '007.jpg'
     outputname = inputname.split('.')[0]+'-res.jpg'
-    Painter(inputname,outputname,True,0.9)
+    run(inputname,outputname,True,0.9)

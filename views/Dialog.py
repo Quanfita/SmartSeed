@@ -4,6 +4,7 @@ Created on Tue Feb  5 16:12:17 2019
 
 @author: Quanfita
 """
+
 from PyQt5.QtWidgets import QDialog,QLabel,QLineEdit,QPushButton,QComboBox,QSlider,QCheckBox,QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt
@@ -606,7 +607,7 @@ class AdjDialog(QDialog):
             self.sl.setMaximum(180)
         else:
             pass
-        self.sl.setTickPosition(QSlider.TicksAbove) 
+        self.sl.setTickPosition(QSlider.TicksAbove)
         
         self.sl.valueChanged[int].connect(self.setValue)
         #self.sl.sliderReleased.connect(self.change)

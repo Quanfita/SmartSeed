@@ -2,7 +2,7 @@
 import tensorflow as tf
 import keras
 import numpy as np
-from Op.Paint.config import *
+from .config import *
 from keras.models import load_model
 
 import keras.backend.tensorflow_backend as KTF
