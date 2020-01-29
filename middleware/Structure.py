@@ -91,10 +91,6 @@ class ImgObject(object):
         self._rect = rect
     
     @property
-    def layer(self):
-        return self._layer
-    
-    @property
     def icon(self):
         return self.__icon
     
@@ -170,69 +166,85 @@ class ImgObject(object):
             self.image = cv2.add(bg,fg)
             self.__mask = cv2.bitwise_or(self.hiddenMask,self.__mask)
 
-class LayerStackList(QObject):
-    in_signal = pyqtSignal(dict)
-    out_signal = pyqtSignal(dict)
-    def __init__(self,debug=False):
-        super().__init__()
+class LayerStackList(object):
+    # in_signal = pyqtSignal(dict)
+    # out_signal = pyqtSignal(dict)
+    def __init__(self,controller,debug=False):
+        # super().__init__()
         self.__debug = debug
+        self.__controller = controller
         self.stack_list = []
         self._now_stack = None
         self._now_idx = 0
-        self.in_signal[dict].connect(self.doMsg)
+        # self.in_signal[dict].connect(self.doMsg)
 
-    def doMsg(self, content):
-        if self.__debug:
-            logger.debug('LayerList request message: '+str(content))
-        if content['type'] == 'Open':
-            self.newStack(content)
-            self.out_signal.emit({'data':{'layer':self._now_stack},'type':'new','togo':'all'})
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'Import image':
-            self._now_stack.addLayer(-1, content['data']['image_name'], content['data']['image'].image)
-        elif content['type'] == 'exchange':
-            self._now_stack.exchgLayer(content['data']['start'],content['data']['end'])
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'dellayer':
-            self._now_stack.delLayer(content['data']['index'])
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'newlayer':
-            self._now_stack.addLayer(content['data']['index'],content['data']['name'])
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'cpylayer':
-            self._now_stack.cpyLayer(content['data']['index'],content['data']['name'])
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'sltlayer':
-            self._now_stack.sltLayer(content['data']['index'])
-            content['callback'](self._now_stack.shown_image)
-        elif content['type'] == 'refresh':
-            self._now_stack.shown_image = content['data']['image']
-        elif content['type'] == 'getRect':
-            self.sendMsg({"data":{'rect':self._now_stack.getRectOfImage()},'type':'getRect','togo':'canvas'})
-        elif content['type'] == 'draw':
-            if content['data']['mode'] in ['line','rect','circle']:
-                self._now_stack.draw_2Pix(content['data']['mode'],content['data']['point_start'],content['data']['point_end'],content['data']['pen_color'],content['data']['thick'],content['data']['brush_color'],content['data']['center'])
-            elif content['data']['mode'] == 'pencil':
-                self._now_stack.draw_NPix(content['data']['point_list'],content['data']['thick'],content['data']['color'],content['data']['center'])
-            elif content['data']['mode'] == 'fill':
-                self._now_stack.fillColor(content['data']['position'],content['data']['color'],content['data']['center'])
-            elif content['data']['mode'] == 'dropper':
-                self._now_stack.dropColor(content['data']['position'],content['data']['callback'])
-            elif content['data']['mode'] == 'vary':
-                self._now_stack.varyImage(content['data']['start_position'],content['data']['end_position'],content['data']['enter'])
-            elif content['data']['mode'] in ['brush','eraser']:
-                self._now_stack.brushDraw(content['data']['position'],content['data']['brush'],content['data']['center'],content['data']['is_start'])
-            elif content['data']['mode'] == 'zoom':
-                self._now_stack.scale = content['data']['scale']
-                self._now_stack.updateImg()
-                content['data']['callback'](self._now_stack.shown_image)
-            content['callback'](self._now_stack.shown_image)
-        if self.__debug:
-            logger.debug(str(self._now_stack.layer_names))
-            # ops.imsave()
+    # def doMsg(self, content):
+    #     if self.__debug:
+    #         logger.debug('LayerList request message: '+str(content))
+    #     if content['type'] == 'Open':
+    #         self.newStack(content)
+    #         self.out_signal.emit({'data':{'layer':self._now_stack},'type':'new','togo':'all'})
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'Import image':
+    #         self._now_stack.addLayer(-1, content['data']['image_name'], content['data']['image'].image)
+    #     elif content['type'] == 'exchange':
+    #         self._now_stack.exchgLayer(content['data']['start'],content['data']['end'])
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'dellayer':
+    #         self._now_stack.delLayer(content['data']['index'])
+    #         content['data']['callback'](self._now_stack)
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'newlayer':
+    #         self._now_stack.addLayer(content['data']['index'],content['data']['name'])
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'cpylayer':
+    #         self._now_stack.cpyLayer(content['data']['index'],content['data']['name'])
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'sltlayer':
+    #         self._now_stack.sltLayer(content['data']['index'])
+    #         # content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'refresh':
+    #         self._now_stack.shown_image = content['data']['image']
+    #     elif content['type'] == 'getRect':
+    #         self.sendMsg({"data":{'rect':self._now_stack.getRectOfImage()},'type':'getRect','togo':'canvas'})
+    #     elif content['type'] == 'mix':
+    #         self._now_stack.setMix(content['data']['index'],content['data']['mode'])
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'draw':
+    #         if content['data']['mode'] in ['line','rect','circle']:
+    #             self._now_stack.draw_2Pix(content['data']['mode'],content['data']['point_start'],content['data']['point_end'],content['data']['pen_color'],content['data']['thick'],content['data']['brush_color'],content['data']['center'])
+    #         elif content['data']['mode'] == 'pencil':
+    #             self._now_stack.draw_NPix(content['data']['point_list'],content['data']['thick'],content['data']['color'],content['data']['center'])
+    #         elif content['data']['mode'] == 'fill':
+    #             self._now_stack.fillColor(content['data']['position'],content['data']['color'],content['data']['center'])
+    #         elif content['data']['mode'] == 'dropper':
+    #             self._now_stack.dropColor(content['data']['position'],content['data']['callback'])
+    #         elif content['data']['mode'] == 'vary':
+    #             self._now_stack.varyImage(content['data']['start_position'],content['data']['end_position'],content['data']['enter'])
+    #         elif content['data']['mode'] in ['brush','eraser']:
+    #             self._now_stack.brushDraw(content['data']['position'],content['data']['brush'],content['data']['center'],content['data']['is_start'])
+    #         elif content['data']['mode'] == 'zoom':
+    #             self._now_stack.scale = content['data']['scale']
+    #             self._now_stack.updateImg()
+    #             content['data']['callback'](self._now_stack.shown_image)
+    #         content['callback'](self._now_stack.shown_image)
+    #     elif content['type'] == 'select_canvas':
+    #         self._now_stack = self.stack_list[content['data']['index']]
+    #         content['callback'](self._now_stack)
+    #     if self.__debug:
+    #         logger.debug('method: '+content['type']+','+str(self._now_stack.layer_names))
+    #         # ops.imsave()
 
-    def sendMsg(self, content):
-        self.out_signal.emit(content)
+    # def sendMsg(self, content):
+    #     self.out_signal.emit(content)
+    
+    @property
+    def now_stack(self):
+        return self._now_stack
+    
+    @now_stack.setter
+    def now_stack(self, stack):
+        self._now_stack = stack
 
     def newStack(self, content):
         if self.__debug:
@@ -240,7 +252,7 @@ class LayerStackList(QObject):
         stack = LayerStack(content,debug = self.__debug)
         self.stack_list.append(stack)
         self._now_stack = stack
-        self._now_stack.out_signal[dict].connect(self.sendMsg)
+        # self._now_stack.out_signal[dict].connect(self.sendMsg)
         self._now_idx = len(self.stack_list) - 1
 
     def addStack(self, stack):
@@ -265,9 +277,9 @@ class LayerStackList(QObject):
             self._now_idx = idx - 1
 
     def removeStack(self, stack):
+        idx = self.stack.index(stack)
         if self.__debug:
             logger.debug('Remove stack: '+str(self.stack_list[idx]))
-        idx = self.stack.index(stack)
         self.stack.remove(stack)
         if len(self.stack_list) > idx:
             self._now_stack = self.stack_list[idx]
@@ -304,17 +316,17 @@ class LayerStackList(QObject):
         self._now_stack = self.stack_list[idx]
         self._now_idx = idx
 
-class LayerStack(QObject):
-    signal = pyqtSignal()
-    in_signal = pyqtSignal(dict)
-    out_signal = pyqtSignal(dict)
-    #updateLayer_signal = pyqtSignal()
-    layNum_signal = pyqtSignal(int)
+class LayerStack(object):
+    # signal = pyqtSignal()
+    # in_signal = pyqtSignal(dict)
+    # out_signal = pyqtSignal(dict)
+    # updateLayer_signal = pyqtSignal()
+    # layNum_signal = pyqtSignal(int)
     def __init__(self, content, debug=False):
-        super().__init__()
+        # super().__init__()
         self.__debug = debug
         self.__name = 'layer-1'
-        self.selectedLayerIndex = 0
+        self.__currentIndex = 0
         self.layer = []
         self.layer_names = []
         self.mix_list = []
@@ -351,8 +363,11 @@ class LayerStack(QObject):
         # self.layer.insert(0,tmp_layer)
         # self.mix_list.insert(0,'Normal')
         # self.__remix()
-        # self.selectedLayerIndex = 0
+        # self.__currentIndex = 0
         self.init(content)
+    
+    def length(self):
+        return len(self.layer)
 
     def init(self, content):
         self.image = content['data']['image'].image
@@ -368,7 +383,7 @@ class LayerStack(QObject):
         self.layer_names.append(self.__name)
         self.mix_list.insert(0,'Normal')
         self.__remix()
-        self.selectedLayerIndex = 0
+        self.__currentIndex = 0
 
     @property
     def scale(self):
@@ -391,7 +406,7 @@ class LayerStack(QObject):
         return l
     
     def currentImageObject(self):
-        return self.layer[self.selectedLayerIndex]
+        return self.layer[self.__currentIndex]
     
     def setCurrentLayerOpacity(self,val):
         cur = self.currentImageObject()
@@ -465,15 +480,14 @@ class LayerStack(QObject):
             #print(point_sx,point_sy,point_ix,point_iy)
             tmp[point_sy:(point_sy+min(img_h,self.__height)),point_sx:(point_sx+min(img_w,self.__width))] = img[point_iy:(point_iy+min(img_h,self.__height)),point_ix:(point_ix+min(img_w,self.__width))]
             '''
-            tmp_layer = ImgObject(img, name, debug=self.__debug)
+            tmp_layer = img #ImgObject(img, name, debug=self.__debug)
         tmp_layer.setPositionOnCanvas(((self.__width+1)//2,(self.__height+1)//2))
         tmp_layer.layerName = name
         self.layer_names.append(name)
         self.layer.insert(idx,tmp_layer)
         self.mix_list.insert(idx,'Normal')
         self.__remix()
-        self.out_signal.emit({'data':{'layer':self,'index':idx},'type':'add','togo':'all'})
-        pass
+        # self.out_signal.emit({'data':{'layer':self,'index':idx},'type':'add','togo':'all'})
     
     def newHiddenLayer(self):
         img = np.zeros((self.__height,self.__width,3),dtype=np.uint8)
@@ -484,8 +498,7 @@ class LayerStack(QObject):
         self.layer_names.pop(idx)
         self.mix_list.pop(idx)
         self.__remix()
-        self.out_signal.emit({'data':{'layer':self,'index':idx},'type':'del','togo':'canvas'})
-        pass
+        # self.out_signal.emit({'data':{'layer':self,'index':idx},'type':'del','togo':'canvas'})
     
     def exchgLayer(self,fore,sup):
         if self.__debug:
@@ -496,32 +509,37 @@ class LayerStack(QObject):
         self.layer.insert(sup,item)
         self.mix_list.insert(sup,mix)
         self.layer_names.insert(sup,name)
+        self.__currentIndex = sup
         self.__remix()
-        self.signal.emit()
-        self.out_signal.emit({'data':{'layer':self},'type':'exchange','togo':'canvas'})
-        pass
+        # self.signal.emit()
+        # self.out_signal.emit({'data':{'layer':self},'type':'exchange','togo':'canvas'})
     
-    def currentLayer(self):
+    def currentLayerImage(self):
         return self.tmp_img
     
     def updateCurrentLayerImage(self,image):
-        self.tmp_img = self.layer[self.selectedLayerIndex].Image = image
+        self.tmp_img = self.layer[self.__currentIndex].Image = image
         self.updateImg()
     
     def sltLayer(self,idx):
         if self.__debug:
             logger.debug('Current selected layer index:'+str(idx))
         self.tmp_img = self.layer[idx].image
-        self.selectedLayerIndex = idx
-        self.layNum_signal.emit(idx)
-        self.out_signal.emit({'data':{'layer':self},'type':'slt','togo':'canvas'})
+        self.__currentIndex = idx
+        # self.layNum_signal.emit(idx)
+        # self.out_signal.emit({'data':{'layer':self},'type':'slt','togo':'canvas'})
         return idx
     
-    def getSelectedLayerIndex(self):
-        return self.selectedLayerIndex
+    # def getSelectedLayerIndex(self):
+    #     return self.__currentIndex
     
+    @property
     def currentIndex(self):
-        return self.selectedLayerIndex
+        return self.__currentIndex
+    
+    @currentIndex.setter
+    def currentIndex(self, index):
+        self.__currentIndex = index
     
     def updateLayerImage(self,idx,image):
         self.tmp_img = self.layer[idx].image = image
@@ -531,15 +549,15 @@ class LayerStack(QObject):
         if self.__debug:
             logger.debug('Copy '+str(idx)+' layer.')
         self.addLayer(idx,name,np.copy(self.layer[idx].image))
-        self.out_signal.emit({'data':{'layer':self},'type':'slt','togo':'canvas'})
+        # self.out_signal.emit({'data':{'layer':self},'type':'slt','togo':'canvas'})
         pass
     
     def isPositionOutOfLayer(self,pos):
         if self.__debug:
             logger.debug('This position is '+
-                         str('' if self.layer[self.selectedLayerIndex].isPosOutOfLayer(pos) else 'not')+
+                         str('' if self.layer[self.__currentIndex].isPosOutOfLayer(pos) else 'not')+
                          'out of layer.')
-        return self.layer[self.selectedLayerIndex].isPosOutOfLayer(pos)
+        return self.layer[self.__currentIndex].isPosOutOfLayer(pos)
     
     def isOutOfLayer(self,ind,pos):
         return self.layer[ind].isPosOutOfLayer(pos)
@@ -568,8 +586,7 @@ class LayerStack(QObject):
         if self.__debug:
             logger.debug('Set '+str(idx)+' layer mixed mode is ' + mix +'.')
         self.mix_list[idx] = mix
-        self.__remix()
-        pass
+        self.updateImg()
     
     def __getMaskRes(self,img,mask):
         mask_inv = cv2.bitwise_not(mask)
@@ -698,13 +715,13 @@ class LayerStack(QObject):
         self.resetBackground(image.shape[1],image.shape[0])
         mask_inv = cv2.bitwise_not(mask)
         fg = cv2.bitwise_and(image,image,mask = mask)
-        print(image.shape,mask.shape,self.background.shape,mask_inv.shape,type(self.background),type(mask_inv))
+        # print(image.shape,mask.shape,self.background.shape,mask_inv.shape,type(self.background),type(mask_inv))
         bg = cv2.bitwise_and(self.background,self.background,mask = mask_inv)
         self.shown_image = cv2.add(fg,bg)
         cv2.imwrite('error.jpg',self.image)
         cv2.imwrite('error_show.jpg',self.shown_image)
-        print(self.image.shape,self.__mask.shape,self.tmp_img.shape,self.shown_image.shape)
-        self.signal.emit()
+        # print(self.image.shape,self.__mask.shape,self.tmp_img.shape,self.shown_image.shape)
+        # self.signal.emit()
 
     @property
     def mask(self):
@@ -712,13 +729,7 @@ class LayerStack(QObject):
     
     def updateImg(self):
         self.__remix()
-        self.signal.emit()
-    
-    def changeImg(self,img):
-        self.image = img
-        #self.__width = self.image.shape[1]
-        #self.__height = self.image.shape[0]
-        self.signal.emit()
+        # self.signal.emit()
     
     def ImgInfo(self):
         return self.__width,self.__height
@@ -748,7 +759,7 @@ class LayerStack(QObject):
         self.__height = height
         self.__remix()
 
-    def draw_2Pix(self,mode,start,end,pencolor,thick,brush,center):
+    def draw_2Pix(self,mode,start,end,pencolor,thick,brush,center,callback=None):
         #print(mode,start,end,pencolor,thick,brush)
         imgObj = self.currentImageObject()
         start = ops.cvtCanPosAndLayerPos(start,(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
@@ -765,8 +776,10 @@ class LayerStack(QObject):
                 cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,brush,-1,cv2.LINE_AA)
             cv2.ellipse(imgObj.image,((start[0]+end[0])//2,(start[1]+end[1])//2),(abs(end[0]-start[0])//2,abs(end[1]-start[1])//2),0,0,360,pencolor,thick,cv2.LINE_AA)
         self.updateImg()
+        if callback is not None:
+            callback(self.shown_image)
 
-    def draw_NPix(self,pos_list,thick,color,center):
+    def draw_NPix(self,pos_list,thick,color,center,callback=None):
         imgObj = self.currentImageObject()
         if pos_list:
             tmp = ops.cvtCanPosAndLayerPos(pos_list[0],(0,0),imgObj.getCenterOfImage(),center,imgObj.offset)
@@ -777,15 +790,17 @@ class LayerStack(QObject):
                 tmp = pos
                 #cv2.circle(self.layers.tmp_img,pos,thick,color[0],-1)
         self.updateImg()
+        if callback is not None:
+            callback(self.shown_image)
 
     def dropColor(self,pos,callback):
         #pos = ops.cvtCanPosAndLayerPos(pos,(0,0),self.layers.layer[self.layer_idx].getCenterOfImage(),self.draw.getCenterOfCanvas())
         # if self.tmp_img.mask[pos[1],pos[0]] == 0:
         #     return
-        [b,g,r,a] = self.currentImageObject().image[pos[1],pos[0]]
+        [b,g,r,a] = self.shown_image[pos[1],pos[0]]
         callback(QColor(r,g,b,a))
         
-    def fillColor(self,pos,color,center,r=50):
+    def fillColor(self,pos,color,center,r=50,callback=None):
         #print(pos)
         # logger.debug('Position:'+str(pos)+', color:'+str(color)+', r:'+str(r))
         imgObj = self.currentImageObject()
@@ -799,8 +814,9 @@ class LayerStack(QObject):
         tmp[:,:,3] = imgObj.image[:,:,3]
         imgObj.image = tmp
         self.updateImg()
+        callback(self.shown_image)
 
-    def varyImage(self,start,end,enter):
+    def varyImage(self,start,end,enter,callback=None):
         last = self.currentImageObject().getPositionOnCanvas()
         self.currentImageObject().setPositionOnCanvasByDistance((end[0] - start[0], end[1] - start[1]))
         self.updateImg()
@@ -808,10 +824,12 @@ class LayerStack(QObject):
             self.currentImageObject().setPositionOnCanvas(last)
         else:
             self.currentImageObject().offset = (end[0] - start[0], end[1] - start[1])
-        self.out_signal.emit({"data":{'rect':self.getRectOfImage()},'type':'getRect','togo':'canvas'})
+        # self.out_signal.emit({"data":{'rect':self.getRectOfImage()},'type':'getRect','togo':'canvas'})
         # self.updateImg()
+        if callback is not None:
+            callback(self.shown_image)
 
-    def brushDraw(self,pos,brush,center,is_start):
+    def brushDraw(self,pos,brush,center,is_start,callback=None):
         def draw(img,position,brush):
             if img.shape[2] == 3:
                 img = cv2.cvtColor(img,cv2.COLOR_BGR2BGRA)
@@ -835,6 +853,8 @@ class LayerStack(QObject):
                 imgObj.image = draw(imgObj.image, point, brush)
         self.updateImg()
         self.tmp_pos = pos
+        if callback is not None:
+            callback(self.shown_image)
 
     def _get_points(self, pos):
         """ Get all points between last_point ~ now_point. """
@@ -845,7 +865,7 @@ class LayerStack(QObject):
         if length == 0: return points
         step_x = len_x / length
         step_y = len_y / length
-        for i in range(int(length)):
+        for _ in range(int(length)):
             points.append((points[-1][0] + step_x, points[-1][1] + step_y))
         points = map(lambda x:(int(0.5+x[0]), int(0.5+x[1])), points)
         # return light-weight, uniq list

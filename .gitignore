@@ -97,3 +97,11 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# self test file
+*.png
+*.jpg
+*.jpeg
+
+# self tensorflow/keras model
+model/

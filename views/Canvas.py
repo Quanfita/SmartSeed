@@ -374,11 +374,14 @@ class MutiCanvas(QTabWidget):
     #changed = pyqtSignal(dict)
     #added = pyqtSignal(dict)
     #deleted = pyqtSignal(dict)
-    out_signal = pyqtSignal(dict)
-    in_signal = pyqtSignal(dict)
+    # out_signal = pyqtSignal(dict)
+    # in_signal = pyqtSignal(dict)
     def __init__(self,parent=None,debug=False):
         super().__init__()
         self.__debug = debug
+        self.parent = parent
+        self.__controller = self.parent.getController()
+        self.canvas = None
         self.canvasList = []
         self.setStyleSheet('QTabWidget{background-color:#282828;border:1px solid #424242;padding:0px;margin:0px;}'
                             'QTabBar::tab{width:120px;height:30px;alignment:left;}')
@@ -387,51 +390,50 @@ class MutiCanvas(QTabWidget):
         self.setAcceptDrops(True)
         self.setContentsMargins(0,0,0,0)
         self.setAutoFillBackground(True)
-        self.tabCloseRequested.connect(self.removeTab)
+        self.tabCloseRequested[int].connect(self.removeCanvas)
         self.currentChanged.connect(self.selectCanvas)
-        self.in_signal[dict].connect(self.doMsg)
+        # self.in_signal[dict].connect(self.doMsg)
         # self.newCanvas()
 
-    def doMsg(self, content):
-        if content['type'] == 'getRect':
-            self.canvas.vary(content['data']['rect'])
+    # def doMsg(self, content):
+    #     if content['type'] == 'getRect':
+    #         self.canvas.vary(content['data']['rect'])
 
-    def sendMsg(self, content):
-        if self.__debug:
-            logger.debug('Multiple Canvas request message: '+str(content))
-        self.out_signal.emit(content)
+    # def sendMsg(self, content):
+    #     if self.__debug:
+    #         logger.debug('Multiple Canvas request message: '+str(content))
+    #     self.out_signal.emit(content)
 
     def setFBColor(self, color):
         self.canvas.draw.changePenColor(color)
 
     def addCanvas(self,canvas):
         self.canvas = canvas
-        self.addTab(self.canvas,self.canvas.canvasName)
         self.canvasList.append(self.canvas)
         #self.added.emit({'mode':'add'})
         self.setCurrentIndex(len(self.canvasList)-1)
+        self.addTab(self.canvas,self.canvas.canvasName)
         if self.__debug:
             logger.debug('Add canvas:'+self.canvas.canvasName+', total '+str(len(self.canvasList))+' canvas.')
     
     def insertCanvas(self,canvas,idx):
         self.canvas = canvas
         self.canvasList.insert(idx,self.canvas)
-        self.insertTab(idx,self.canvas,self.canvas.canvasName)
         #self.added.emit({'mode':'insert','index':idx})
         self.setCurrentIndex(idx)
+        self.insertTab(idx,self.canvas,self.canvas.canvasName)
         if self.__debug:
             logger.debug('Insert canvas:'+self.canvas.canvasName+', index:'+str(idx)+', total '+str(len(self.canvasList))+' canvas.')
     
-    def newCanvas(self):
-        self.canvas = Canvas(parent=self,debug=self.__debug)
-        self.canvas.out_signal[dict].connect(self.sendMsg)
+    def newCanvas(self,layerStack):
+        self.canvas = Canvas(structure=layerStack,parent=self,debug=self.__debug)
         self.canvasList.append(self.canvas)
-        self.addTab(self.canvas,self.canvas.canvasName)
         #self.added.emit({'mode':'new'})
-        self.setCurrentIndex(len(self.canvasList)-1)
         if self.__debug:
             logger.debug('New canvas:'+self.canvas.canvasName+', total '+str(len(self.canvasList))+' canvas.')
             logger.debug('Current index:'+str(self.currentCanvasIndex())+', length of list:'+str(len(self.canvasList)))
+        self.addTab(self.canvas,self.canvas.canvasName)
+        self.setCurrentIndex(len(self.canvasList)-1)
     
     def currentCanvas(self):
         return self.currentWidget()
@@ -441,16 +443,23 @@ class MutiCanvas(QTabWidget):
     
     def selectCanvas(self):
         if self.__debug:
-            logger.debug('Select canvas index:'+str(self.currentCanvasIndex()))
+            logger.debug('Select canvas index:'+str(self.currentCanvasIndex())+' ,total: '+str(len(self.canvasList)))
+        if len(self.canvasList) <= self.currentCanvasIndex():
+            return
         self.canvas = self.canvasList[self.currentCanvasIndex()]
+        self.__controller.selectCanvas(self.currentCanvasIndex())
+        # self.sendMsg({'data':{'index':self.currentCanvasIndex()},'type':'select_canvas','togo':'layer'})
         # self.out_signal.emit({'type':'refresh'})
         #self.changed.emit({'mode':'change','index':self.currentCanvasIndex()})
     
-    def delCanvas(self):
-        idx = self.currentCanvasIndex()
+    def removeCanvas(self, idx):
+        # idx = self.currentCanvasIndex()
+        if self.__debug:
+            logger.debug('Delete Canvas index:'+str(idx)+', total '+str(len(self.canvasList))+' canvas.')
         if self.count() == 1:
             self.removeTab(idx)
             self.canvasList.pop(idx)
+            self.canvas = None
         elif idx < self.count() - 1:
             self.canvas = self.canvasList[idx+1]
             self.removeTab(idx)
@@ -462,8 +471,7 @@ class MutiCanvas(QTabWidget):
             self.canvasList.pop(idx)
             self.setCurrentIndex(idx-1)
         #self.deleted.emit({'mode':'delete','index':idx})
-        if self.__debug:
-            logger.debug('Delete Canvas index:'+str(idx)+'total '+str(len(self.canvasList))+' canvas.')
+        self.__controller.removeCanvas(idx)
 
 class CanvasScroll(QScrollArea):
     signal = pyqtSignal(dict)
@@ -515,31 +523,7 @@ class CanvasScroll(QScrollArea):
             logger.debug(str(centerX)+','+str(centerY)+','+str(self.disX)+','+str(self.disY)+','+str(self.content_scale)+','+str(self.last_scale))
             logger.debug(str(centerX + int(self.disX*self.content_scale/self.last_scale))+','+str(centerY + int(self.disY*self.content_scale/self.last_scale)))
         self.ensureVisible(*self.getCenterPosition())
-        '''
-    def mousePressEvent(self,event):
-        super().mousePressEvent(event)
-        self.currentPosition = (event.pos().x(),event.pos().y())
-        self.disX,self.disY = self.getDistance(self.getCenterPosition(),self.currentPosition)
-        self.start_pos = (event.pos().x(), event.pos().y())
-        self.end_pos = (event.pos().x(), event.pos().y())
-        self.hVal = self.hor.value()
-        self.vVal = self.ver.value()
-        if self.__debug:
-            logger.debug(str(event.pos().x())+','+str(event.pos().y())+','+str(self.getCenterPosition()))
-        self._clicked = True
-    
-    def mouseMoveEvent(self,event):
-        super().mouseMoveEvent(event)
-        self.end_pos = (event.pos().x(), event.pos().y())
-        self.hor.setValue(self.hVal - self.end_pos[0] + self.start_pos[0])
-        self.ver.setValue(self.vVal - self.end_pos[1] + self.start_pos[1])
-    
-    def mouseReleaseEvent(self,event):
-        super().mouseReleaseEvent(event)
-        self.end_pos = (event.pos().x(), event.pos().y())
-        self.hor.setValue(self.hVal - self.end_pos[0] + self.start_pos[0])
-        self.ver.setValue(self.vVal - self.end_pos[1] + self.start_pos[1])
-        '''
+
     def paintEvent(self,event):
         # There overload the paintEvent Function, 
         # different drawing according to different flags,
@@ -576,13 +560,15 @@ class Canvas(QWidget):
     in_signal = pyqtSignal(dict)
     signal = pyqtSignal()
     changeRow = pyqtSignal(int)
-    def __init__(self,parent=None,debug=False):
+    def __init__(self,structure,parent=None,debug=False):
         super().__init__()
         self.__debug = debug
-        self.parent = parent
+        self.__structure = structure
         self.setMinimumSize(250, 300)
         self.setStyleSheet("background-color:#282828;border:0px;padding:0px;margin:0px;")
         self.draw = Draw(debug=self.__debug)
+        self.draw.resize(self.__structure.image.shape[1],self.__structure.image.shape[0])
+        self.draw.refresh(self.__structure.image)
         self.canvasName = 'Untitled-1'
         self.layer_idx = 0
         self._flag = False
@@ -599,25 +585,23 @@ class Canvas(QWidget):
         self.setLayout(self.vbox)
         self.draw.send_signal[dict].connect(self.taskDistribution)
         self.draw.typechanged[dict].connect(self.toolsInit)
-        self.in_signal[dict].connect(self.doMsg)
 
-    def doMsg(self, content):
-        if self.__debug:
-            logger.debug('Canvas request message: '+str(content))
-        if content['type'] == 'resize':
-            self.brush.resize(*content['data'])
-        elif content['type'] == 'getRect':
-            x1,y1,x2,y2 = content['data']['rect']
-            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-            self.draw.repaint()
-            self.scroll.draw(self._rect)
-            self.scroll.repaint()
-        else:
-            layer = content['data']['layer']
-            self.draw.resize(layer.width(),layer.height())
-            self.draw.refresh(layer.image)
-        pass
+    # def doMsg(self, content):
+    #     if self.__debug:
+    #         logger.debug('Canvas request message: '+str(content))
+    #     if content['type'] == 'resize':
+    #         self.brush.resize(*content['data'])
+    #     elif content['type'] == 'getRect':
+    #         x1,y1,x2,y2 = content['data']['rect']
+    #         self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+    #         self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+    #         self.draw.repaint()
+    #         self.scroll.draw(self._rect)
+    #         self.scroll.repaint()
+    #     else:
+    #         layer = content['data']['layer']
+    #         self.draw.resize(layer.width(),layer.height())
+    #         self.draw.refresh(layer.image)
 
     def getCenterPoint(self):
         return ((self.scroll.width()+1)//2, (self.scroll.height()+1)//2)
@@ -643,22 +627,60 @@ class Canvas(QWidget):
             self.scroll.showRect()
             # if content['content'] is not None:
             #     self.changeRow.emit(self.layers.autoSelectClickedLayer(content['content']))
-            self.out_signal.emit({'data':{},'type':'getRect','togo':'layer'})
-            # x1,y1,x2,y2 = self.layers.getRectOfImage()
-            # self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-            # self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-            # self.draw.repaint()
-            # self.scroll.draw(self._rect)
-            # self.scroll.repaint()
+            # self.out_signal.emit({'data':{},'type':'getRect','togo':'layer'})
+            x1,y1,x2,y2 = self.__structure.getRectOfImage()
+            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            self.draw.repaint()
+            self.scroll.draw(self._rect)
+            self.scroll.repaint()
         self.chgCursor(_type)
     
     def taskDistribution(self,content):
         if self.__debug:
             if content['mode'] != 'move':
                 logger.debug('Content:'+str(content))
-        content['center'] = self.draw.getCenterOfCanvas()
-        if content['mode'] == 'vary':
-            content['callback'] = self.vary
+        # content['center'] = self.draw.getCenterOfCanvas()
+        # if content['mode'] == 'vary':
+        #     content['callback'] = self.vary
+        # elif content['mode'] == 'zoom':
+        #     if content['isplus']:
+        #         if int(self.scale) >= 100:
+        #             self.scale = min(self.scale + 100,800)
+        #         else:
+        #             self.scale = min(self.scale*2,100)
+        #     else:
+        #         if int(self.scale) >= 200:
+        #             self.scale -= 50
+        #         elif int(self.scale) > 100:
+        #             self.scale = 100.0
+        #         else:
+        #             self.scale -= 0.5*self.scale
+        #     content['scale'] = self.scale
+        #     content['callback'] = self.zoom
+        # if content['mode'] == 'move':
+        #     self.movement(content['start'],content['end'],content['enter'])
+        # else:
+        #     self.out_signal.emit({'data':content,'type':'draw','togo':'layer'})
+
+        mode = content['mode']
+        if content['mode'] in ['line','rect','circle']:
+            self.__structure.draw_2Pix(content['mode'],content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'],self.draw.getCenterOfCanvas(),callback=self.draw.refresh)
+        elif content['mode'] == 'pencil':
+            self.__structure.draw_NPix(content['point_list'],content['thick'],content['color'],self.draw.getCenterOfCanvas(),callback=self.draw.refresh)
+        elif content['mode'] == 'dropper':
+            self.__structure.dropColor(content['position'],None)
+        elif content['mode'] == 'fill':
+            self.__structure.fillColor(content['position'],content['color'],self.draw.getCenterOfCanvas(),r=50,callback=self.draw.refresh)
+        elif content['mode'] == 'vary':
+            self.__structure.varyImage(content['start_position'],content['end_position'],content['enter'],callback=self.draw.refresh)
+            x1,y1,x2,y2 = self.__structure.getRectOfImage()
+            self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
+            self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
+            self.scroll.draw(self._rect)
+            self.scroll.repaint()
+        elif content['mode'] == 'brush':
+            self.__structure.brushDraw(content['position'],content['brush'],self.draw.getCenterOfCanvas(),content['is_start'],callback=self.draw.refresh)
         elif content['mode'] == 'zoom':
             if content['isplus']:
                 if int(self.scale) >= 100:
@@ -672,37 +694,13 @@ class Canvas(QWidget):
                     self.scale = 100.0
                 else:
                     self.scale -= 0.5*self.scale
-            content['scale'] = self.scale
-            content['callback'] = self.zoom
-        if content['mode'] == 'move':
+            self.__structure.scale = self.scale
+            self.__structure.updateImg()
+            self.zoom(self.__structure.image)
+        elif content['mode'] == 'move':
             self.movement(content['start'],content['end'],content['enter'])
         else:
-            self.out_signal.emit({'data':content,'type':'draw','togo':'layer'})
-
-        # mode = content['mode']
-        # if mode in ['Line','Rect','Circle']:
-        #     self.draw_2Pix(mode,content['point_start'],content['point_end'],content['pen_color'],content['thick'],content['brush_color'])
-        # elif mode == 'Pencil':
-        #     self.draw_NPix(content['point_list'],content['thick'],content['color'])
-        # elif mode == 'Dropper':
-        #     self.dropColor(content['position'])
-        # elif mode == 'Fill':
-        #     self.fillColor(content['position'],content['color'])
-        # elif mode == 'Vary':
-        #     x1,y1,x2,y2 = self.layers.getRectOfImage()
-        #     self._rect = self.getPosition((x1,y1))+self.getPosition((x2,y2))
-        #     self.draw.setImageRect((x1,y1,x2-x1,y2-y1))
-        #     self.scroll.draw(self._rect)
-        #     self.scroll.repaint()
-        #     self.varyImage(content['start_position'],content['end_position'],content['enter'])
-        # elif mode == 'Brush':
-        #     self.brushDraw(content['position'],content['type'],content['color'],content['size'],content['is_start'])
-        # elif mode == 'Zoom':
-        #     self.zoom(content['isplus'])
-        # elif mode == 'Move':
-        #     self.movement(content['start'],content['end'],content['enter'])
-        # else:
-        #     return
+            return
 
     def chgCursor(self,tar=None):
         if tar in ['pencil','line','rect','circle']:
@@ -722,32 +720,32 @@ class Canvas(QWidget):
         else:
             self.setCursor(Qt.ArrowCursor)
 
-    def imgOperate(self):
-        '''
-        tmp = cv2.cvtColor(self.layers.Image,cv2.COLOR_BGR2BGRA)
-        if self.layers.getNum() == 1:
-            tmp[:,:,3] = self.layers.mask
-        self.draw.setPixmap(ops.cvtCV2PixmapAlpha(tmp))
-        '''
-        def getResultImage(img,background,mask):
-            mask_inv = cv2.bitwise_not(mask)
-            fg = cv2.bitwise_and(img,img,mask = mask)
-            bg = cv2.bitwise_and(background,background,mask = mask_inv)
-            return cv2.add(fg,bg)
-        tmp = cv2.resize(self.layers.Image,
-                         (0,0),fx=self.scale/100, fy=self.scale/100,
-                         interpolation=cv2.INTER_NEAREST)
-        mask = cv2.resize(self.layers.mask,
-                          (0,0),fx=self.scale/100, fy=self.scale/100,
-                         interpolation=cv2.INTER_NEAREST)
-        self.layers.resetBackground(int(self.layers.width()*(self.scale//100)),int(self.layers.height()*(self.scale//100)))
-        self.draw.resize(self.layers.width()*(self.scale//100),self.layers.height()*(self.scale//100))
-        tmp = getResultImage(tmp,self.layers.background,mask)
-        if tmp.shape[2] == 3:
-            tmp = cv2.cvtColor(tmp,cv2.COLOR_BGR2BGRA)
-        self.draw.setPixmap(ops.cvtCV2PixmapAlpha(tmp))
-        # cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
-        self.signal.emit()
+    # def imgOperate(self):
+    #     '''
+    #     tmp = cv2.cvtColor(self.layers.Image,cv2.COLOR_BGR2BGRA)
+    #     if self.layers.getNum() == 1:
+    #         tmp[:,:,3] = self.layers.mask
+    #     self.draw.setPixmap(ops.cvtCV2PixmapAlpha(tmp))
+    #     '''
+    #     def getResultImage(img,background,mask):
+    #         mask_inv = cv2.bitwise_not(mask)
+    #         fg = cv2.bitwise_and(img,img,mask = mask)
+    #         bg = cv2.bitwise_and(background,background,mask = mask_inv)
+    #         return cv2.add(fg,bg)
+    #     tmp = cv2.resize(self.layers.Image,
+    #                      (0,0),fx=self.scale/100, fy=self.scale/100,
+    #                      interpolation=cv2.INTER_NEAREST)
+    #     mask = cv2.resize(self.layers.mask,
+    #                       (0,0),fx=self.scale/100, fy=self.scale/100,
+    #                      interpolation=cv2.INTER_NEAREST)
+    #     self.layers.resetBackground(int(self.layers.width()*(self.scale//100)),int(self.layers.height()*(self.scale//100)))
+    #     self.draw.resize(self.layers.width()*(self.scale//100),self.layers.height()*(self.scale//100))
+    #     tmp = getResultImage(tmp,self.layers.background,mask)
+    #     if tmp.shape[2] == 3:
+    #         tmp = cv2.cvtColor(tmp,cv2.COLOR_BGR2BGRA)
+    #     self.draw.setPixmap(ops.cvtCV2PixmapAlpha(tmp))
+    #     # cv2.imwrite('./tmp_layer.jpg',self.layers.Image)
+    #     self.signal.emit()
 
     def vary(self,rect):
         x1,y1,x2,y2 = rect

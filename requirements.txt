@@ -9,7 +9,8 @@ PyQt5==5.11.3
 sip==4.19.8
 tensorflow==1.4.0
 trimesh==2.37.1
-rtree==0.9.3
 colorama==0.4.3
+numba==0.47.0
+rtree==0.9.3
 opencv-python
 opencv-contrib-python

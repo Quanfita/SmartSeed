@@ -7,6 +7,7 @@ Created on Sat Nov 24 11:12:14 2018
 
 import cv2
 import numpy as np
+import numba
 
 def Screen(img1,img2):#滤色
     img1 = img1 / 255.0
@@ -22,6 +23,7 @@ def Multiply(img1,img2):
     res = (res*255).astype(np.uint8)
     return res
 
+@numba.jit
 def Overlay(img1,img2):#叠加
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -40,6 +42,7 @@ def Overlay(img1,img2):#叠加
     res = (255*res).astype(np.uint8)
     return res
 
+@numba.jit
 def SoftLight(img1,img2):#柔光
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -58,6 +61,7 @@ def SoftLight(img1,img2):#柔光
     res = (255*res).astype(np.uint8)
     return res
 
+@numba.jit
 def HardLight(img1,img2):#强光
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -114,6 +118,7 @@ def LinearDodge(img1,img2):#线性减淡
     res = (res*255).astype(np.uint8)
     return res
 
+@numba.jit
 def LighterColor(img1,img2):#浅色
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -131,6 +136,7 @@ def LighterColor(img1,img2):#浅色
     res = (255*res).astype(np.uint8)
     return res
 
+@numba.jit
 def VividLight(img1,img2):#亮光
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -158,6 +164,7 @@ def LinearLight(img1,img2):#线性光
     res = (res*255).astype(np.uint8)
     return res
 
+@numba.jit
 def PinLight(img1,img2):#点光
     img1 = img1 / 255.0
     img2 = img2 / 255.0
@@ -178,6 +185,7 @@ def PinLight(img1,img2):#点光
     res = (255*res).astype(np.uint8)
     return res
 
+@numba.jit
 def HardMix(img1,img2):#实色混合
     img1 = img1 / 255.0
     img2 = img2 / 255.0

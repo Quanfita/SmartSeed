@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 from skimage.measure import block_reduce
-
+import numba
 
 def from_png_to_jpg(map):
     if map.shape[2] ==3:
@@ -12,7 +12,7 @@ def from_png_to_jpg(map):
     final_color = (255.0 - reversed_color * alpha * 255.0).clip(0,255).astype(np.uint8)
     return final_color
 
-
+@numba.jit
 def k_resize(x, k):
     if x.shape[0] < x.shape[1]:
         s0 = k
@@ -37,7 +37,7 @@ def k_resize(x, k):
     y = cv2.resize(x, (_s1, _s0), interpolation=interpolation)
     return y
 
-
+@numba.jit
 def sk_resize(x, k):
     if x.shape[0] < x.shape[1]:
         s0 = k
@@ -62,7 +62,7 @@ def sk_resize(x, k):
     y = cv2.resize(x, (_s1, _s0), interpolation=interpolation)
     return y
 
-
+@numba.jit
 def d_resize(x, d, fac=1.0):
     new_min = min(int(d[1] * fac), int(d[0] * fac))
     raw_min = min(x.shape[0], x.shape[1])
@@ -78,7 +78,7 @@ def n_resize(x, d):
     y = cv2.resize(x, (d[1], d[0]), interpolation=cv2.INTER_NEAREST)
     return y
 
-
+@numba.jit
 def s_resize(x, s):
     if x.shape[0] < x.shape[1]:
         s0 = x.shape[0]
@@ -95,7 +95,7 @@ def s_resize(x, s):
     y = cv2.resize(x, (s1, s0), interpolation=interpolation)
     return y
 
-
+@numba.jit
 def min_resize(x, m):
     if x.shape[0] < x.shape[1]:
         s0 = m
@@ -112,7 +112,7 @@ def min_resize(x, m):
     y = cv2.resize(x, (s1, s0), interpolation=interpolation)
     return y
 
-
+@numba.jit
 def max_resize(x, m):
     if x.shape[0] > x.shape[1]:
         s0 = m
@@ -129,19 +129,19 @@ def max_resize(x, m):
     y = cv2.resize(x, (s1, s0), interpolation=interpolation)
     return y
 
-
+@numba.jit
 def s_enhance(x, k=2.0):
     p = cv2.cvtColor(x, cv2.COLOR_RGB2HSV).astype(np.float)
     p[:, :, 1] *= k
     p = p.clip(0, 255).astype(np.uint8)
     return cv2.cvtColor(p, cv2.COLOR_HSV2RGB).clip(0, 255)
 
-
+@numba.jit
 def ini_hint(x):
     r = np.zeros(shape=(x.shape[0], x.shape[1], 4), dtype=np.float32)
     return r
 
-
+@numba.jit
 def opreate_gird_hint(gird, points, type, length):
     h = gird.shape[0]
     w = gird.shape[1]
@@ -160,7 +160,7 @@ def opreate_gird_hint(gird, points, type, length):
             gird[b_:t_, l_:r_, 3] = 1
     return gird
 
-
+@numba.jit
 def opreate_normal_hint(gird, points, type, length):
     h = gird.shape[0]
     w = gird.shape[1]
@@ -179,7 +179,7 @@ def opreate_normal_hint(gird, points, type, length):
             gird[b_:t_, l_:r_, 3] = 255.0
     return gird
 
-
+@numba.jit
 def go_cvline(img):
     x = cv2.Sobel(img, cv2.CV_16S, 1, 0)
     y = cv2.Sobel(img, cv2.CV_16S, 0, 1)
@@ -188,7 +188,7 @@ def go_cvline(img):
     r = 255 - cv2.addWeighted(absX, 0.5, absY, 0.5, 0)
     return np.tile(np.min(r, axis=2, keepdims=True).clip(0, 255).astype(np.uint8), [1, 1, 3])
 
-
+@numba.jit
 def go_passline(img):
     o = img.astype(np.float32)
     b = cv2.GaussianBlur(img, (7, 7), 0).astype(np.float32)
@@ -197,21 +197,21 @@ def go_passline(img):
     r = (1 - r).clip(0, 1)
     return np.tile((r * 255.0).clip(0, 255).astype(np.uint8), [1, 1, 3])
 
-
+@numba.jit
 def min_k_down(x, k):
     y = 255 - x.astype(np.float32)
     y = block_reduce(y, (k, k), np.max)
     y = 255 - y
     return y.clip(0, 255).astype(np.uint8)
 
-
+@numba.jit
 def min_k_down_c(x, k):
     y = 255 - x.astype(np.float32)
     y = block_reduce(y, (k, k, 1), np.max)
     y = 255 - y
     return y.clip(0, 255).astype(np.uint8)
 
-
+@numba.jit
 def mini_norm(x):
     y = x.astype(np.float32)
     y = 1 - y / 255.0
@@ -219,7 +219,7 @@ def mini_norm(x):
     y /= np.max(y)
     return (255.0 - y * 80.0).astype(np.uint8)
 
-
+@numba.jit
 def hard_norm(x):
     o = x.astype(np.float32)
     b = cv2.GaussianBlur(x, (3, 3), 0).astype(np.float32)
@@ -231,7 +231,7 @@ def hard_norm(x):
     y[y > 0] = 1
     return (255.0 - y * 255.0).astype(np.uint8)
 
-
+@numba.jit
 def sensitive(x, s=15.0):
     y = x.astype(np.float32)
     y -= s
@@ -251,7 +251,7 @@ def eye_black(x):
 def cal_std(x):
     y = (cv2.resize(x, (128, 128), cv2.INTER_AREA)).astype(np.float32)
     return np.mean(np.var(y, axis=2))
-
+@numba.jit
 
 def emph_line(x, y, c):
     a = x.astype(np.float32)
@@ -259,14 +259,14 @@ def emph_line(x, y, c):
     c = np.tile(c[None, None, ::-1], [a.shape[0], a.shape[1], 1])
     return (a * b + c * (1 - b)).clip(0, 255).astype(np.uint8)
 
-
+@numba.jit
 def de_line(x, y):
     a = x.astype(np.float32)
     b = y.astype(np.float32)[:, :, None] / 255.0
     c = np.tile(np.array([255, 255, 255])[None, None, ::-1], [a.shape[0], a.shape[1], 1])
     return (a * b + c * (1 - b)).clip(0, 255).astype(np.uint8)
 
-
+@numba.jit
 def blur_line(x, y):
     o = x.astype(np.float32)
     b = cv2.GaussianBlur(x, (3, 3), 0).astype(np.float32)

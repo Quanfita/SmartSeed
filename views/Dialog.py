@@ -5,19 +5,24 @@ Created on Tue Feb  5 16:12:17 2019
 @author: Quanfita
 """
 
-from PyQt5.QtWidgets import QDialog,QLabel,QLineEdit,QPushButton,QComboBox,QSlider,QCheckBox,QMessageBox
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import (QDialog,QLabel,QLineEdit,QPushButton,QComboBox,QSlider,
+                            QCheckBox,QMessageBox,QFileDialog)
+from PyQt5.QtGui import QIcon, QFont, QRegExpValidator
+from PyQt5.QtCore import Qt, QRegExp
 from common.utils import saveImage
 from core import ops
+from core.Basic.Basic import custom, comp, hue, light
+from common.app import logger
 import setting
+import numpy as np
 
 class SaveDialog(QDialog):
     """docstring for SaveDialog"""
-    def __init__(self, parent):
+    def __init__(self, parent, image):
         super(SaveDialog, self).__init__()
         self.parent = parent
-        self.test_img = ops.imread(setting.BASE_PATH+'/samples/10.jpg')
+        self.__image = image
+        # self.test_img = ops.imread(setting.BASE_PATH+'/samples/10.jpg')
         self.setWindowModality(Qt.ApplicationModal)
         self.resize(640,480)
         self.setWindowTitle('Save Image')
@@ -53,8 +58,8 @@ class SaveDialog(QDialog):
         self.w_line.setObjectName('width')
         self.w_line.installEventFilter(self)
         self.w_line.setGeometry(520,70,50,20)
-        self.w_line.setPlaceholderText(str(self.test_img.shape[1]))
-        self.w_line.setText(str(self.test_img.shape[1]))
+        self.w_line.setPlaceholderText(str(self.__image.shape[1]))
+        self.w_line.setText(str(self.__image.shape[1]))
         self.w_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
                                 "QLineEdit:focus{background-color:#424242;border:none;}")
         self.w_line.textEdited[str].connect(self.setScaleValue)
@@ -63,8 +68,8 @@ class SaveDialog(QDialog):
         self.h_line.setObjectName('height')
         self.h_line.installEventFilter(self)
         self.h_line.setGeometry(520,100,50,20)
-        self.h_line.setPlaceholderText(str(self.test_img.shape[0]))
-        self.h_line.setText(str(self.test_img.shape[0]))
+        self.h_line.setPlaceholderText(str(self.__image.shape[0]))
+        self.h_line.setText(str(self.__image.shape[0]))
         self.h_line.setStyleSheet("QLineEdit{background-color:#535353;border:none;}"
                                 "QLineEdit:focus{background-color:#424242;border:none;}")
         self.h_line.textEdited[str].connect(self.setScaleValue)
@@ -121,7 +126,7 @@ class SaveDialog(QDialog):
         self.imgShow.setAlignment(Qt.AlignCenter)
         self.imgShow.setGeometry(40,40,400,400)
         self.imgShow.setStyleSheet("QLabel{background-color:#424242;border:1px solid #646464;}")
-        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(self.test_img,400,400)))
+        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(self.__image,400,400)))
 
         self.show()
 
@@ -138,7 +143,7 @@ class SaveDialog(QDialog):
             elif name == 'height':
                 self.w_line.setText(str(int(int(self.h_line.text())*self.scale)))
         else:
-            tmp_img = ops.resize(self.test_img,int(self.w_line.text()),int(self.h_line.text()))
+            tmp_img = ops.resize(self.__image,int(self.w_line.text()),int(self.h_line.text()))
             self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(tmp_img,400,400)))
 
     def setCheckValue(self, value):
@@ -154,7 +159,7 @@ class SaveDialog(QDialog):
     def saveImage(self):
         width,height = int(self.w_line.text()),int(self.h_line.text())
         quanlity = int(self.q_line.text())
-        img = ops.resize(self.test_img, width, height)
+        img = ops.resize(self.__image, width, height)
         if saveImage(self,img,'Untitled-1',quanlity=quanlity):
             self.close()
         else:
@@ -555,7 +560,7 @@ class AdjDialog(QDialog):
     """
     The adjustment dialog of image adjustment.
     """
-    def __init__(self,img,tar,debug=False):
+    def __init__(self,controller,tar,debug=False):
         super(AdjDialog,self).__init__()
         self.setStyleSheet('QDialog{color:white;background-color:#535353;}'
                             "QPushButton{color:white;background-color:#434343;border:2px solid white;border-radius:15px;}"
@@ -567,9 +572,10 @@ class AdjDialog(QDialog):
         self.setFixedSize(640, 480)
         self.setWindowTitle('Adjustment')
         self.setWindowIcon(QIcon('./static/UI/icon_32.png'))
-        self.__img = img
-        self.__tmp_img = np.copy(self.__img.Image)
-        self.img_h,self.img_w = self.__img.height,self.__img.width
+        self.__controller = controller
+        self.__img = self.__controller.layerStack.image
+        self.__tmp_img = np.copy(self.__img)
+        self.img_h,self.img_w = self.__img.shape[0],self.__img.shape[1]
         self.__target = tar
 
         self.main_lb = QLabel('Adjustment',self)
@@ -588,7 +594,7 @@ class AdjDialog(QDialog):
         self.__tmp_img = cv2.resize(self.__tmp_img,(400,
                                         self.img_h*400//self.img_w) if self.img_w >= self.img_h else (self.img_w*400//self.img_h,400))
         '''
-        self.imgShow.setPixmap(ops.cvtCV2Pixmap(self.__tmp_img))
+        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(self.__tmp_img))
         
         self.sl = QSlider(Qt.Horizontal,self)
         #self.sl.resize(30,100)
@@ -628,23 +634,21 @@ class AdjDialog(QDialog):
         self.sl.setValue(value)
         self.lb.setText('Value: '+str(value))
         self.change()
-        pass
     
     def change(self):
-        if self.__target == 'light':
-            self.__tmp_img = light(self.__img.Image,self.sl.value())
-        elif self.__target == 'comp':
-            comp(self.__img.Image,self.sl.value())
-            self.__tmp_img = cv2.imread('./tmp/comp.jpg')
-        elif self.__target == 'custom':
-            self.__tmp_img = custom(self.__img.Image,self.sl.value())
-        elif self.__target == 'hue':
-            self.__tmp_img = hue(self.__img.Image,self.sl.value())
+        if self.__target == 'Light':
+            self.__tmp_img = light(self.__img,self.sl.value())
+        elif self.__target == 'Comp':
+            self.__tmp_img = comp(self.__img,self.sl.value())
+        elif self.__target == 'Custom':
+            self.__tmp_img = custom(self.__img,self.sl.value())
+        elif self.__target == 'Hue':
+            self.__tmp_img = hue(self.__img,self.sl.value())
         else:
             return
-        self.imgShow.setPixmap(ops.cvtCV2Pixmap(self.__tmp_img))
+        self.imgShow.setPixmap(ops.cvtCV2PixmapAlpha(self.__tmp_img))
     
     def saveImage(self):
-        self.__img.changeImg(self.__tmp_img)
+        self.__img = self.__tmp_img
         self.accept()
         self.close()

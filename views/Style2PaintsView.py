@@ -8,17 +8,20 @@ Created on Wed Jan 22 13:38:17 2020
 from PyQt5.QtWidgets import QWidget, QDialog, QLabel,QApplication, QToolButton, QPushButton, QSlider
 from PyQt5.QtCore import Qt,pyqtSignal,QPoint
 from PyQt5.QtGui import QIcon,QPixmap,QColor,QPainter,QPen,QPolygon
-from core.Style2Paints import Painters
+# from core.Style2Paints import Painters
 from core import ops
 from common.utils import openImage
 
 import os
+import numpy as np
 
-class S2PView(QWidget):
+class S2PView(QDialog):
 
-    def __init__(self,image,debug=False):
+    def __init__(self,controller,debug=False):
         super(S2PView, self).__init__()
-        self.__image = image
+        self.__controller = controller
+        self.__image = controller.layerStack.image
+        self.__res = np.copy(self.__image)
         self.__points = []
         self.__reference = None
         self.__alpha = 0
@@ -26,11 +29,12 @@ class S2PView(QWidget):
         self.__using_color = QColor(255,255,255)
         self.__show_image = ops.resizeAdjustment(self.__image,480,480)
         self.__initView()
-        self.loadSketch()
+        # self.loadSketch()
     
     def __initView(self):
         self.setFixedSize(1040,680)
         self.setCursor(Qt.CrossCursor)
+        self.setWindowModality(Qt.ApplicationModal)
 
         self.sketch_label = SketchCanvas(self)
         self.sketch_label.setGeometry(20+(480-self.__show_image.shape[1])//2,20+(480-self.__show_image.shape[0])//2,self.__show_image.shape[1],self.__show_image.shape[0])
@@ -57,13 +61,15 @@ class S2PView(QWidget):
 
         self.ok_btn = QPushButton('保存',self)
         self.ok_btn.setGeometry(940, 520, 80, 30)
+        self.ok_btn.clicked.connect(self.accept)
         self.cancel_btn = QPushButton('取消',self)
         self.cancel_btn.setGeometry(940, 570, 80, 30)
+        self.cancel_btn.clicked.connect(self.close)
 
         self.paint_btn = QToolButton(self)
         self.paint_btn.setGeometry(500,260,40,40)
         self.paint_btn.setStyleSheet("QToolButton{background:url('./static/UI/right.png') no-repeat center;}")
-        self.paint_btn.clicked.connect(self.getPaintingResult)
+        # self.paint_btn.clicked.connect(self.getPaintingResult)
         
         self._cur_label = QLabel(self)
         self._use_label = QLabel(self)
@@ -102,7 +108,6 @@ class S2PView(QWidget):
         self._refer_label.setAlignment(Qt.AlignCenter)
         self._refer_label.setPixmap(ops.cvtCV2PixmapAlpha(ops.resizeAdjustment(ops.imread('./static/UI/upload_reference.png'),80,80)))
 
-
         self._alpha_bar = QSlider(Qt.Horizontal,self)
         self._alpha_bar.setGeometry(840,620,80,20)
         self._alpha_bar.setMinimum(0)
@@ -137,26 +142,30 @@ class S2PView(QWidget):
         elif sender == self._eraser_btn:
             self.sketch_label.setType(1)
     
-    def loadSketch(self):
-        if os.path.exists('./tmp/tmp.improved.jpg'):
-            os.remove('./tmp/tmp.improved.jpg')
-        if os.path.exists('./tmp/tmp.recolorization.jpg'):
-            os.remove('./tmp/tmp.recolorization.jpg')
-        if os.path.exists('./tmp/tmp.de_painting.jpg'):
-            os.remove('./tmp/tmp.de_painting.jpg')
-        if os.path.exists('./tmp/tmp.colorization.jpg'):
-            os.remove('./tmp/tmp.colorization.jpg')
-        if os.path.exists('./tmp/tmp.rendering.jpg'):
-            os.remove('./tmp/tmp.rendering.jpg')
-        Painters.sketch_upload(self.__image[:,:,:-1])
+    def getRes(self):
+        return self.__res
     
-    def getPaintingResult(self):
-        points = [[i[0]/self.__show_image.shape[1],i[1]/self.__show_image.shape[0],i[2][0],i[2][1],i[2][2],i[-1]] for i in self.sketch_label.getPoints()]
-        print(points)
-        tmp = Painters.painting(self.__image[:,:,:-1],points=points,alpha=self.__alpha,reference=self.__reference)
-        tmp = ops.resize(tmp,self.__show_image.shape[1],self.__show_image.shape[0])
-        # ops.imsave(tmp,'res.png')
-        self.colorful_label.setPixmap(ops.cvtCV2Pixmap(tmp))
+    # def loadSketch(self):
+    #     if os.path.exists('./tmp/tmp.improved.jpg'):
+    #         os.remove('./tmp/tmp.improved.jpg')
+    #     if os.path.exists('./tmp/tmp.recolorization.jpg'):
+    #         os.remove('./tmp/tmp.recolorization.jpg')
+    #     if os.path.exists('./tmp/tmp.de_painting.jpg'):
+    #         os.remove('./tmp/tmp.de_painting.jpg')
+    #     if os.path.exists('./tmp/tmp.colorization.jpg'):
+    #         os.remove('./tmp/tmp.colorization.jpg')
+    #     if os.path.exists('./tmp/tmp.rendering.jpg'):
+    #         os.remove('./tmp/tmp.rendering.jpg')
+    #     Painters.sketch_upload(self.__image[:,:,:-1])
+    
+    # def getPaintingResult(self):
+    #     points = [[i[0]/self.__show_image.shape[1],i[1]/self.__show_image.shape[0],i[2][0],i[2][1],i[2][2],i[-1]] for i in self.sketch_label.getPoints()]
+    #     print(points)
+    #     tmp = Painters.painting(self.__image[:,:,:-1],points=points,alpha=self.__alpha,reference=self.__reference)
+    #     self.__res = ops.resize(tmp,self.__image.shape[1],self.__image.shape[0])
+    #     tmp = ops.resize(tmp,self.__show_image.shape[1],self.__show_image.shape[0])
+    #     # ops.imsave(tmp,'res.png')
+    #     self.colorful_label.setPixmap(ops.cvtCV2Pixmap(tmp))
 
 class SketchCanvas(QLabel):
     def __init__(self,parent=None):

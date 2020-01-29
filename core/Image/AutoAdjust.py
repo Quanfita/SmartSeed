@@ -8,12 +8,14 @@ Created on Sun Feb 10 09:54:02 2019
 import cv2
 import math
 import numpy as np
+import numba
 
 class ACE(object):
     
     def __init__(self):
         self.g_para = {}
 
+    @numba.jit
     def stretchImage(self,data, s=0.005, bins = 2000):    #线性拉伸，去掉最大最小0.5%的像素值，然后线性拉伸至[0,1]
         ht = np.histogram(data, bins);
         d = np.cumsum(ht[0])/float(data.size)
@@ -27,7 +29,8 @@ class ACE(object):
                 break
             lmax-=1
         return np.clip((data-ht[1][lmin])/(ht[1][lmax]-ht[1][lmin]), 0,1)
-     
+    
+    @numba.jit
     def getPara(self,radius = 5):                        #根据半径计算权重参数矩阵
         m = self.g_para.get(radius, None)
         if m is not None:
@@ -42,7 +45,8 @@ class ACE(object):
         m /= m.sum()
         self.g_para[radius] = m
         return m
-     
+    
+    @numba.jit
     def zmIce(self, I, ratio=4, radius=300):                     #常规的ACE实现
         para = self.getPara(radius)
         height,width = I.shape
@@ -55,7 +59,8 @@ class ACE(object):
                     continue
                 res += (para[h][w] * np.clip((I-Z[h:h+height, w:w+width])*ratio, -1, 1))
         return res
-     
+    
+    @numba.jit
     def zmIceFast(self, I, ratio, radius):                #单通道ACE快速增强实现
         height, width = I.shape[:2]
         if min(height, width) <=2:
@@ -66,30 +71,33 @@ class ACE(object):
         Rs = cv2.resize(Rs, (width, height))
      
         return Rf+self.zmIce(I,ratio, radius)-self.zmIce(Rs,ratio,radius)    
-                
+
+    @numba.jit      
     def zmIceColor(self, I, ratio=4, radius=3):               #rgb三通道分别增强，ratio是对比度增强因子，radius是卷积模板半径
-        I = I / 255.0
+        alpha = I[:,:,-1]
         res = np.zeros(I.shape)
+        I = I[:,:,:-1] / 255.0
         for k in range(3):
             res[:,:,k] = self.stretchImage(self.zmIceFast(I[:,:,k], ratio, radius))
+        res[:,:,-1] = alpha
         return (res*255).astype(np.uint8)
 
 def AWB(img):
-    b,g,r = cv2.split(img)
+    b,g,r,a = cv2.split(img)
     B,G,R = np.mean(b),np.mean(g),np.mean(r)
     kb,kg,kr = (R + G + B) / (3*B),(R + G + B) / (3*G),(R + G + B) / (3*R)
     b,g,r = b*kb, g*kg, r*kr
-    final = cv2.merge([b,g,r])
+    final = cv2.merge([b.astype(np.uint8),g.astype(np.uint8),r.astype(np.uint8),a.astype(np.uint8)])
     return final.astype(np.uint8)
 
 def ACA(image):
     #CLAHE
-    b,g,r = cv2.split(image)
+    b,g,r,a = cv2.split(image)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
     b = clahe.apply(b)
     g = clahe.apply(g)
     r = clahe.apply(r)
-    image = cv2.merge([b,g,r])
+    image = cv2.merge([b,g,r,a])
     return image.astype(np.uint8)
 
 def ImageSize(img,width,height):
