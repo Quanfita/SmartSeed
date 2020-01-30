@@ -18,6 +18,7 @@ from views.DockWidget import InfoLabel, Hist, FrontBackColor
 from views.Layer import LayerMain
 from views.Dialog import SaveDialog, AdjDialog
 from views.Style2PaintsView import S2PView
+from views.ToolBar import ToolView
 from common.app import logger
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, 
@@ -303,10 +304,11 @@ class MainWindow(QMainWindow):
         self.toolBar = QToolBar()
         self.toolBar.setContentsMargins(0,10,0,10)
         self.main_toolbar = QToolBar()
-        self.main_toolbar.setContentsMargins(5,0,5,0)
+        self.main_toolbar.setContentsMargins(0,5,0,5)
         self.addToolBar(Qt.TopToolBarArea,self.main_toolbar)
         self.addToolBar(Qt.LeftToolBarArea,self.toolBar)
         self.main_toolbar.setFixedHeight(40)
+        self.main_toolbar.setAllowedAreas(Qt.TopToolBarArea|Qt.BottomToolBarArea)
         
         self.pencilAct = QAction(QIcon('./static/UI/pen.svg'),'pencil',self)
         self.pencilAct.setStatusTip('Pencil')
@@ -513,8 +515,7 @@ class MainWindow(QMainWindow):
     def disPre(self):
         if self.last_tool in self.toollist.keys():
             self.toollist[self.last_tool].setEnabled(True)
-            self.main_toolbar.clear()
-            sip.delete(self.adj_b)
+        self.main_toolbar.clear()
 
     def perOpTools(self):
         s = self.sender().text()
@@ -522,6 +523,7 @@ class MainWindow(QMainWindow):
             logger.debug('Choose tool:'+s)
         self.mcanvas.canvas.draw.chgType(s)
         self.disPre()
+        self.main_toolbar.addWidget(ToolView(s))
         self.last_tool = s
     
     def getController(self):

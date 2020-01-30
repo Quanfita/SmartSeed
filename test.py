@@ -2,7 +2,7 @@ from setting import *
 from common.app import logger
 from common.utils import openImage
 from views.testMain import MainWindow
-from views.Dialog import SaveDialog
+from views.ToolBar import ToolView
 # from views.Preview import Preview
 from core import ops
 from PyQt5.QtWidgets import QApplication,QWidget
@@ -25,6 +25,8 @@ if __name__ == '__main__':
 	ctrl.init(main,pth,layer)
 	main.show()
 	pth.start()
+	# tool = ToolView('vary')
+	# tool.show()
 	# image = ops.imread('./samples/24.png')
 	# s2p = S2PView(image,debug=debug)
 	# s2p.show()
