@@ -8,6 +8,8 @@ from PyQt5.QtWidgets import QFileDialog
 import configparser
 import time
 import os
+import cv2
+import numpy as np
 
 def readUserIni():
     settings = QSettings(os.path.join(CONFIG_PATH, USER_CONF_FILE), QSettings.IniFormat)
@@ -78,3 +80,4 @@ def saveImage(parent, image, name, depth=8, dpi=72.0, quanlity=80):
 
 if __name__ == '__main__':
     saveHistoryCfg({})
+    # generateColorPicker((255,101,0))

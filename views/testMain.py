@@ -523,7 +523,7 @@ class MainWindow(QMainWindow):
             logger.debug('Choose tool:'+s)
         self.mcanvas.canvas.draw.chgType(s)
         self.disPre()
-        self.main_toolbar.addWidget(ToolView(s))
+        self.main_toolbar.addWidget(ToolView(s,self))
         self.last_tool = s
     
     def getController(self):

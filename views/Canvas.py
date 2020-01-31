@@ -379,8 +379,8 @@ class MutiCanvas(QTabWidget):
     def __init__(self,parent=None,debug=False):
         super().__init__()
         self.__debug = debug
-        self.parent = parent
-        self.__controller = self.parent.getController()
+        self.__parent = parent
+        self.__controller = self.__parent.getController()
         self.canvas = None
         self.canvasList = []
         self.setStyleSheet('QTabWidget{background-color:#282828;border:1px solid #424242;padding:0px;margin:0px;}'
@@ -403,6 +403,9 @@ class MutiCanvas(QTabWidget):
     #     if self.__debug:
     #         logger.debug('Multiple Canvas request message: '+str(content))
     #     self.out_signal.emit(content)
+
+    def getController(self):
+        return self.__controller
 
     def setFBColor(self, color):
         self.canvas.draw.changePenColor(color)
@@ -561,9 +564,10 @@ class Canvas(QWidget):
     signal = pyqtSignal()
     changeRow = pyqtSignal(int)
     def __init__(self,structure,parent=None,debug=False):
-        super().__init__()
+        super().__init__(parent=parent)
         self.__debug = debug
         self.__structure = structure
+        self.__parent = parent
         self.setMinimumSize(250, 300)
         self.setStyleSheet("background-color:#282828;border:0px;padding:0px;margin:0px;")
         self.draw = Draw(debug=self.__debug)
@@ -669,7 +673,7 @@ class Canvas(QWidget):
         elif content['mode'] == 'pencil':
             self.__structure.draw_NPix(content['point_list'],content['thick'],content['color'],self.draw.getCenterOfCanvas(),callback=self.draw.refresh)
         elif content['mode'] == 'dropper':
-            self.__structure.dropColor(content['position'],None)
+            self.__structure.dropColor(content['position'],self.__parent.getController().view.colorWidget.changeFrontColor)
         elif content['mode'] == 'fill':
             self.__structure.fillColor(content['position'],content['color'],self.draw.getCenterOfCanvas(),r=50,callback=self.draw.refresh)
         elif content['mode'] == 'vary':

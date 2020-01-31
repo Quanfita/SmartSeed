@@ -31,6 +31,10 @@ class Controller(object):
         self.__p_thread.finished.connect(self.refreshView)
 
     @property
+    def view(self):
+        return self.__view
+
+    @property
     def layerStack(self):
         return self.__stack
 

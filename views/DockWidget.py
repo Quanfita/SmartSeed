@@ -6,6 +6,7 @@ Created on Tue Feb  5 16:12:17 2019
 """
 from PyQt5.QtWidgets import QLabel,QTabWidget,QWidget,QScrollArea,QPushButton,QColorDialog
 from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject
+from PyQt5.QtGui import QColor
 from core import ops
 
 import cv2
@@ -57,9 +58,13 @@ class ColorConical(QWidget):
 
 
 class FrontBackColor(QWidget):
+    frontColorChanged = pyqtSignal()
+    backColorChanged = pyqtSignal()
     signal = pyqtSignal(dict)
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super(FrontBackColor,self).__init__(parent)
+        self.__front_color = QColor(200,40,110)#QColor('black')
+        self.__back_color = QColor('white')
         self.setFixedSize(40,40)
         self.backButton = QPushButton(self)
         self.backButton.setGeometry(15,15,20,20)
@@ -71,23 +76,36 @@ class FrontBackColor(QWidget):
         self.frontButton.setFixedSize(20,20)
         self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:white;}")
         self.frontButton.clicked.connect(self.__setFrontColor)
-        self.show()
     
     def changeFrontColor(self,color):
+        self.__front_color = color
         self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
-        self.signal.emit({'data':{'front':color},'type':'color'})
+        # self.signal.emit({'data':{'front':color},'type':'color'})
     
     def changeBackColor(self,color):
+        self.__back_color = color
         self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
-        self.signal.emit({'data':{'back':color},'type':'color'})
+        # self.signal.emit({'data':{'back':color},'type':'color'})
     
+    @property
+    def frontColor(self):
+        return self.__front_color
+    
+    @property
+    def backColor(self):
+        return self.__back_color
+
     def __setFrontColor(self):
         col = QColorDialog.getColor()
-        self.changeFrontColor(col)
+        self.__front_color = col
+        self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(col.name())+";}")
+        self.frontColorChanged.emit()
         
     def __setBackColor(self):
         col = QColorDialog.getColor()
-        self.changeBackColor(col)
+        self.__back_color = col
+        self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(col.name())+";}")
+        self.backColorChanged.emit()
 
 
 class ColorLinear(QWidget):

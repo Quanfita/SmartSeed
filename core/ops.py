@@ -10,6 +10,8 @@ from PyQt5.QtCore import Qt
 import numpy as np
 import cv2
 from PIL import Image
+import numba
+import time
 
 def imread(imagename):
     tag = imagename.split('.')[-1]
@@ -210,6 +212,14 @@ def makeIcon(image):
     icon = cv2.copyMakeBorder(icon,3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200,255])
     return cvtCV2PixmapAlpha(icon)
 
+def cvtRGB2BGR(RGB):
+    r,g,b = RGB
+    return (b,g,r)
+
+def cvtBGR2RGB(BGR):
+    b,g,r = BGR
+    return (r,g,b)
+
 def cvtRGBA2BGRA(RGBA):
     r,g,b,a = RGBA
     return (b,g,r,a)
@@ -218,10 +228,74 @@ def cvtBGRA2RGBA(BGRA):
     b,g,r,a = BGRA
     return (r,g,b,a)
 
+def generateHueColorPicker(BGR):
+    b,g,r = BGR
+    res = np.zeros([256,256,3],dtype=np.uint8)
+    res[:,:] = [b,g,r]
+    h,w,_ = res.shape
+    @numba.jit
+    def getRes(res):
+        if b == 255:
+            for i in range(h):
+                for j in range(w):
+                    res[i,j] = [b*(h-i)/h,(g+(255-g)*(w-j)/w)*(h-i)/h,(r+(255-r)*(w-j)/w)*(h-i)/h]
+        elif g == 255:
+            for i in range(h):
+                for j in range(w):
+                    res[i,j] = [(b+(255-b)*(w-j)/w)*(h-i)/h,g*(h-i)/h,(r+(255-r)*(w-j)/w)*(h-i)/h]
+        elif r == 255:
+            for i in range(h):
+                for j in range(w):
+                    res[i,j] = [(b+(255-b)*(w-j)/w)*(h-i)/h,(g+(255-g)*(w-j)/w)*(h-i)/h,r*(h-i)/h]
+        return res
+    return getRes(res).astype(np.uint8)
+
+def generateHueColorLine():
+    res = np.zeros([256*6,30,3],dtype=np.uint8)
+    for i in range(256):
+        res[i,:] = [0,i,255]
+    for i in range(256):
+        res[i+256,:] = [0,255,255-i]
+    for i in range(256):
+        res[i+256*2,:] = [i,255,0]
+    for i in range(256):
+        res[i+256*3,:] = [255,255-i,0]
+    for i in range(256):
+        res[i+256*4,:] = [255,0,i]
+    for i in range(256):
+        res[i+256*5,:] = [255-i,0,255]
+    return res
+
+def generateLightColorPicker():
+    res = np.zeros([256,256*6,3],dtype=np.uint8)
+    for j in range(256):
+        for i in range(256):
+            res[j,i] = [j,int(i+(255-i)*j/255),255]
+        for i in range(256):
+            res[j,i+256] = [j,255,int(255-i+(i)*j/255)]
+        for i in range(256):
+            res[j,i+256*2] = [int(i+(255-i)*j/255),255,j]
+        for i in range(256):
+            res[j,i+256*3] = [255,int(255-i+(i)*j/255),j]
+        for i in range(256):
+            res[j,i+256*4] = [255,j,int(i+(255-i)*j/255)]
+        for i in range(256):
+            res[j,i+256*5] = [int(255-i+(i)*j/255),j,255]
+    return res
+
+def generateLightColorLine(BGR):
+    b,g,r = BGR
+    res = np.zeros([256,30,3],dtype=np.uint8)
+    res[:,:] = [b,g,r]
+    for i in range(256):
+        res[i,:] = [int(b*(1-i/255)),int(g*(1-i/255)),int(r*(1-i/255))]
+    return res
+
 '''
 def cvtLayerPos2CanPos(pix,imgPosition,imgCenter,canCenter):
     (disX,disY) = zeroPositionCheck(imgPosition,imgCenter,canCenter)
     return (pix[0] + disX, pix[1] + disY)
     '''
+
 if __name__ == '__main__':
     drawBackground(1200,800)
