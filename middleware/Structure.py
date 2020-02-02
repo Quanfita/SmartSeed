@@ -31,7 +31,7 @@ class ImgObject(object):
         if icon is not None:
             self.__icon = ops.makeIcon(icon)
         else:
-            self.__icon = ops.makeIcon(img)
+            self.__icon = ops.resizeAdjustment(img,35,35)#ops.makeIcon(img)
         
         self.__mask = self.image[:,:,3]
         self.__width, self.__height = self.__realImage.shape[1],self.__realImage.shape[0]

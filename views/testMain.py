@@ -19,6 +19,7 @@ from views.Layer import LayerMain
 from views.Dialog import SaveDialog, AdjDialog
 from views.Style2PaintsView import S2PView
 from views.ToolBar import ToolView
+from views.ColorWidget import ColorWidget
 from common.app import logger
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtWidgets import (QApplication, QWidget, QToolTip, 
@@ -85,7 +86,7 @@ class MainWindow(QMainWindow):
         # self.initSignals()
 
         self.setWindowTitle('SmartSeed')
-        self.setWindowIcon(QIcon('./static/UI/icon_32.png'))        
+        self.setWindowIcon(QIcon('./static/UI/logo_32.png'))        
         self.showMaximized()
         self.show()
         logger.info('Init complited!')
@@ -329,6 +330,10 @@ class MainWindow(QMainWindow):
         self.cropAct = QAction(QIcon('./static/UI/crop.svg'),'crop',self)
         self.cropAct.setStatusTip('Crop')
         self.cropAct.triggered.connect(self.perOpTools)
+
+        self.penAct = QAction(QIcon('./static/UI/pen-nib.svg'),'pen',self)
+        self.penAct.setStatusTip('Pen')
+        self.penAct.triggered.connect(self.perOpTools)
         
         self.brushAct = QAction(QIcon('./static/UI/paint-brush.svg'),'brush',self)
         self.brushAct.setStatusTip('Brush')
@@ -345,6 +350,10 @@ class MainWindow(QMainWindow):
         self.fillAct = QAction(QIcon('./static/UI/fill-drip.svg'),'fill',self)
         self.fillAct.setStatusTip('Fill-Drip')
         self.fillAct.triggered.connect(self.perOpTools)
+
+        self.selectAct = QAction(QIcon('./static/UI/expand.svg'),'select',self)
+        self.selectAct.setStatusTip('Select Tool')
+        self.selectAct.triggered.connect(self.perOpTools)
         
         self.stampAct = QAction(QIcon('./static/UI/stamp.svg'),'stamp',self)
         self.stampAct.setStatusTip('Stamp')
@@ -354,7 +363,7 @@ class MainWindow(QMainWindow):
         self.moveAct.setStatusTip('Move')
         self.moveAct.triggered.connect(self.perOpTools)
         
-        self.colorWidget = FrontBackColor()
+        self.colorWidget = FrontBackColor([self.setFrontColorAndSend,self.setBackColorAndSend,self.setFrontColor,self.setBackColor],self)
         self.colorWidget.signal[dict].connect(self.sendMsg)
         
         self.varyAct = QAction(QIcon('./static/UI/arrows.svg'),'vary',self)
@@ -367,8 +376,8 @@ class MainWindow(QMainWindow):
         
         self.toollist = {'Vary':self.varyAct,'Pencil':self.pencilAct,'Line':self.lineAct,
                     'Rect':self.rectAct,'Circle':self.circleAct,'Fill-Drip':self.fillAct,
-                    'Eraser':self.eraserAct,'Brush':self.brushAct,'Crop':self.cropAct,
-                    'Dropper':self.dropperAct,'Stamp':self.stampAct,'Move':self.moveAct,
+                    'Eraser':self.eraserAct,"Pen":self.penAct,'Brush':self.brushAct,'Crop':self.cropAct,
+                    'Dropper':self.dropperAct,"Select":self.selectAct,'Stamp':self.stampAct,'Move':self.moveAct,
                     'Zoom':self.zoomAct}
         tl = [i for i in self.toollist.keys()]
         for i in range(len(self.toollist)):
@@ -382,9 +391,13 @@ class MainWindow(QMainWindow):
         self.infoDock = InfoLabel()
         self.hist = Hist()
         self.layer = LayerMain(parent=self,debug=self.__debug)
-        dock = {'hist':self.hist, 'info':self.infoDock, 'layer':self.layer}
+        self.color_widget = ColorWidget([self.setFrontColorAndSend,self.setBackColorAndSend,self.setFrontColor,self.setBackColor],self)
+        self.color_widget.calculate()
+        dock = {'hist':self.hist,'color':self.color_widget, 'info':self.infoDock, 'layer':self.layer}
+        dock_list = {}
         for key in dock.keys():
-            self.createDockWidget(key,dock[key])
+            dock_list[key] = self.createDockWidget(key,dock[key])
+        self.tabifyDockWidget(dock_list['color'],dock_list['hist'])
 
     # def initSignals(self):
     #     self.mcanvas.canvas.out_signal[dict].connect(self.sendMsg)
@@ -399,6 +412,7 @@ class MainWindow(QMainWindow):
         dock.setStyleSheet('QDockWidget:QWidget{color:white;background-color:#535353;border:1px solid #282828;}'
                             'QDockWidget:title{color:#cdcdcd;background-color:#535353;}')
         self.addDockWidget(Qt.RightDockWidgetArea, dock)
+        return dock
 
     def sendMsg(self, content={}):
         sender = self.sender()
@@ -538,3 +552,25 @@ class MainWindow(QMainWindow):
 
     def getSkerch(self):
         pass
+
+    def setFrontColorAndSend(self, color):
+        print('0')
+        self.color_widget.FBC.setFrontColorAndSend(color)
+        self.color_widget.calculate()
+        self.colorWidget.setFrontColorAndSend(color)
+    
+    def setBackColorAndSend(self, color):
+        print('1')
+        self.color_widget.FBC.setBackColorAndSend(color)
+        self.color_widget.calculate()
+        self.colorWidget.setBackColorAndSend(color)
+    
+    def setFrontColor(self, color):
+        print('2')
+        self.color_widget.FBC.setFrontColor(color)
+        self.colorWidget.setFrontColor(color)
+    
+    def setBackColor(self, color):
+        print('3')
+        self.color_widget.FBC.setBackColor(color)
+        self.colorWidget.setBackColor(color)

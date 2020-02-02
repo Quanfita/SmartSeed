@@ -16,8 +16,8 @@ import numpy as np
 import time
 
 class ColorWidget(QWidget):
-    def __init__(self, FBCWidget=None):
-        super(ColorWidget, self).__init__()
+    def __init__(self, callbacks, parent=None):
+        super(ColorWidget, self).__init__(parent)
         self.setMinimumHeight(150)
         self.setMinimumWidth(150)
         self.setMaximumHeight(400)
@@ -27,12 +27,9 @@ class ColorWidget(QWidget):
         self.setStyleSheet("QWidget{background:#565656;}")
         
         self.target = 'hue'
-        if FBCWidget is None:
-            self.FBC = FrontBackColor(self)
-        else:
-            self.FBC = FBCWidget
+        self.FBC = FrontBackColor(callbacks,self)
         self.FBC.setGeometry(5,5,40,40)
-        self.FBC.frontColorChanged.connect(self.calculate)
+        # self.FBC.frontColorChanged.connect(self.calculate)
 
         self.color_slider = LineSlider(self)
         self.color_slider.setGeometry(self.width()-50,0,40,self.height())
@@ -42,12 +39,13 @@ class ColorWidget(QWidget):
         self.main_label.setColorPicker((0,0,255))
         self.main_label.setGeometry(50,5,self.width()-105,self.height()-10)
         self.main_label.colorChanged[tuple].connect(self.changeColor)
-        self.calculate()
+        # self.calculate()
     
     def changeColorPicker(self, color):
         self.main_label.setColorPicker(color)
     
     def changeColor(self, color):
+        print('change color:'+str(color))
         self.FBC.changeFrontColor(QColor(*ops.cvtBGR2RGB(color)))
     
     def calculate(self):
@@ -57,8 +55,10 @@ class ColorWidget(QWidget):
         pure_color[2 - index] = 255
         index = np.argmin([r,g,b])
         pure_color[2 - index] = 0
-        self.color_slider.color_line.autoFindColorPosition(pure_color)
+        print([b,g,r])
+        self.color_slider.autoFindColorPosition(pure_color)
         self.main_label.autoFindColorPosition((b,g,r))
+        self.FBC.changeFrontColor(QColor(r,g,b))
 
 class LineLabel(QLabel):
     clicked = pyqtSignal(tuple)
@@ -69,18 +69,12 @@ class LineLabel(QLabel):
         self.setFixedWidth(20)
         self.setPixmap(QPixmap('./static/UI/hueline.png').scaled(self.width(),self.height()))
 
-    def autoFindColorPosition(self, color):
-        self.__now_color = color
-        index = np.argwhere(np.all(self.__color_line == color,axis=-1))[0][0]
-        print(index)
-        precent = self.getPositionPercentOnShow(index)
-        index = min(int(self.height()*precent),self.height())
-        print(self.height())
-        self.clicked.emit((0,index))
+    @property
+    def colorLine(self):
+        return self.__color_line
 
     def resizeEvent(self, event):
         self.setPixmap(QPixmap('./static/UI/hueline.png').scaled(self.width(),self.height()))
-        self.autoFindColorPosition(self.__now_color)
 
     def getPositionPercentOnReal(self, pos_y):
         return pos_y / self.height()
@@ -114,6 +108,7 @@ class LineSlider(QWidget):
         super(LineSlider, self).__init__(parent)
         self.setFixedWidth(40)
         self.setStyleSheet("QWidget{background:#565656;}")
+        self.__now_color = None
         self.color_line = LineLabel(self)
         self.color_line.setGeometry(15,5,20,self.height()-10)
         self.__tmp_pos = (-1,-1)
@@ -125,6 +120,16 @@ class LineSlider(QWidget):
         self.color_line.clicked[tuple].connect(self.setHandlePosition)
         self.handle.clicked.connect(self.setHandlePosition)
     
+    def autoFindColorPosition(self, color):
+        self.__now_color = color
+        index = np.argwhere(np.all(self.color_line.colorLine == color,axis=-1))
+        print(color)
+        if len(index) != 0:
+            index = index[0][0]
+            precent = self.color_line.getPositionPercentOnShow(index)
+            index = min(int(self.height()*precent),self.height())
+            self.setHandlePosition((0,index))
+
     def setHandlePosition(self, pos=None):
         if pos is None:
             pos = self.__tmp_pos
@@ -134,6 +139,7 @@ class LineSlider(QWidget):
     
     def resizeEvent(self, event):
         self.color_line.setGeometry(15,5,20,self.height()-10)
+        self.autoFindColorPosition(self.__now_color)
     
     def mousePressEvent(self, event):
         if event.pos().y() >= 0 and event.pos().y() <= self.color_line.height():
@@ -168,7 +174,7 @@ class TouchLabel(QLabel):
         self.__now_color = None
 
         self.__click_position = None
-    
+
     def autoFindColorPosition(self, color):
         self.__now_color = color
         index = np.argwhere(np.all(self.__color_picker == color, axis=-1))
@@ -177,6 +183,8 @@ class TouchLabel(QLabel):
             y,x = int(self.height() * percent_y), int(self.width() * percent_x)
             self.__click_position = (x,y)
             self.repaint()
+        else:
+            self.__click_position = None
     
     def resizeEvent(self, event):
         self.setPixmap(ops.cvtCV2Pixmap(self.__color_picker).scaled(self.width(),self.height()))
@@ -209,6 +217,16 @@ class TouchLabel(QLabel):
             y,x = int(self.__color_picker.shape[0] * percent_y), int(self.__color_picker.shape[1] * percent_x)
             self.setColor(self.__color_picker[y,x])
             self.repaint()
+    
+    def mouseMoveEvent(self, event):
+        if self.__color_picker is not None:
+            x,y = event.pos().x(),event.pos().y()
+            self.__click_position = (x,y)
+            percent_x, percent_y = self.getPositionPercentOnReal((x,y))
+            y,x = int(self.__color_picker.shape[0] * percent_y), int(self.__color_picker.shape[1] * percent_x)
+            if y >= 0 and y < self.__color_picker.shape[0] and x >= 0 and x < self.__color_picker.shape[1]:
+                self.setColor(self.__color_picker[y,x])
+                self.repaint()
     
     def paintEvent(self, event):
         super().paintEvent(event)

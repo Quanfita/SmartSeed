@@ -61,10 +61,11 @@ class FrontBackColor(QWidget):
     frontColorChanged = pyqtSignal()
     backColorChanged = pyqtSignal()
     signal = pyqtSignal(dict)
-    def __init__(self, parent=None):
+    def __init__(self, callbacks, parent=None):
         super(FrontBackColor,self).__init__(parent)
         self.__front_color = QColor(200,40,110)#QColor('black')
         self.__back_color = QColor('white')
+        self.__callbacks = callbacks
         self.setFixedSize(40,40)
         self.backButton = QPushButton(self)
         self.backButton.setGeometry(15,15,20,20)
@@ -78,13 +79,16 @@ class FrontBackColor(QWidget):
         self.frontButton.clicked.connect(self.__setFrontColor)
     
     def changeFrontColor(self,color):
+        print('color:'+str(color.getRgb()))
         self.__front_color = color
-        self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
+        self.__callbacks[2](color)
+        # self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
         # self.signal.emit({'data':{'front':color},'type':'color'})
     
     def changeBackColor(self,color):
         self.__back_color = color
-        self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
+        self.__callbacks[3](color)
+        # self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
         # self.signal.emit({'data':{'back':color},'type':'color'})
     
     @property
@@ -98,15 +102,30 @@ class FrontBackColor(QWidget):
     def __setFrontColor(self):
         col = QColorDialog.getColor()
         self.__front_color = col
-        self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(col.name())+";}")
+        self.__callbacks[0](col)
+    
+    def setFrontColor(self, color):
+        self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
+
+    def setBackColor(self, color):
+        self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
+
+    def setFrontColorAndSend(self, color):
+        print(color.name())
+        self.__front_color = color
+        self.frontButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
         self.frontColorChanged.emit()
-        
+
     def __setBackColor(self):
         col = QColorDialog.getColor()
         self.__back_color = col
-        self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(col.name())+";}")
+        self.__callbacks[1](col)
+    
+    def setBackColorAndSend(self, color):
+        print(color.name())
+        self.__back_color = color
+        self.backButton.setStyleSheet("QPushButton{border:1px solid #cdcdcd;background-color:"+str(color.name())+";}")
         self.backColorChanged.emit()
-
 
 class ColorLinear(QWidget):
     signal = pyqtSignal(dict)

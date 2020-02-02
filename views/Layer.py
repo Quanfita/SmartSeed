@@ -8,11 +8,66 @@ from common.app import logger
 from core import ops
 from PyQt5.QtWidgets import (QListWidget,QListWidgetItem,QToolBox,QWidget,QLabel,
 							QVBoxLayout,QAbstractItemView,QGroupBox,QHBoxLayout,
-							QLineEdit,QComboBox,QToolButton,QInputDialog,QMessageBox,QMenu,QAction)
-from PyQt5.QtGui import QIcon,QFont,QDrag
+							QLineEdit,QComboBox,QToolButton,QInputDialog,
+                            QMessageBox,QMenu,QAction)
+from PyQt5.QtGui import QIcon,QFont,QDrag,QPixmap
 from PyQt5.QtCore import Qt,pyqtSignal,QSettings,QObject,QSize,QMimeData,QItemSelectionModel
 
 import sys
+
+class ItemWidget(QWidget):
+    def __init__(self,image,name,parent=None):
+        super(ItemWidget, self).__init__(parent)
+        self.__can_see = True
+        self.__isLocked = True
+        self.setStyleSheet("background-color:#535353;color:white;border:1px solid #454545;")
+        self.eye = QToolButton(self)
+        self.eye.setFixedSize(12,12)
+        self.eye.setIcon(QIcon(QPixmap('./static/UI/eye.svg').scaled(12,12)))
+        self.eye.setStyleSheet("border:0px;background-color:transparent;")
+        self.eye.clicked.connect(self.setEye)
+
+        self.thumbnail = QLabel(self)
+        w,h = ops.getFitSize(image.shape,35,35)
+        self.setFixedHeight(max(25,h+10))
+        self.thumbnail.setFixedSize(w,h)
+        self.thumbnail.setPixmap(ops.cvtCV2PixmapAlpha(image).scaled(w,h))
+        self.thumbnail.setStyleSheet("border:1px solid #000;background-color:transparent;")
+
+        self.name_line = QLineEdit(self)
+        self.name_line.setText(name)
+        self.name_line.setEnabled(False)
+        self.name_line.setFixedSize(100,20)
+        self.name_line.setStyleSheet("border:0px;background-color:transparent;color:white;")
+
+        self.lock = QToolButton(self)
+        self.lock.setFixedSize(10,12)
+        self.lock.setIcon(QIcon(QPixmap('./static/UI/lock.svg').scaled(10,12)))
+        self.lock.setStyleSheet("border:0px;background-color:transparent;")
+        self.lock.clicked.connect(self.setLock)
+
+        self.__layout = QHBoxLayout(self)
+        self.__layout.setContentsMargins(0,0,0,0)
+        self.__layout.addSpacing(10)
+        self.__layout.addWidget(self.eye)
+        self.__layout.addSpacing(5)
+        self.__layout.addWidget(self.thumbnail)
+        self.__layout.addWidget(self.name_line)
+        self.__layout.addWidget(self.lock)
+        self.__layout.addSpacing(20)
+    
+    def setEye(self):
+        self.__can_see = not self.__can_see
+        if self.__can_see:
+            self.eye.setIcon(QIcon(QPixmap('./static/UI/eye.svg').scaled(12,12)))
+        else:
+            self.eye.setIcon(QIcon(QPixmap('./static/UI/eye-slash.svg').scaled(12,12)))
+        
+    def setLock(self):
+        if self.__isLocked:
+            self.__isLocked = not self.__isLocked
+            self.lock.setIcon(QIcon())
+        
 
 class ListWidget(QListWidget):
     """
@@ -34,10 +89,12 @@ class ListWidget(QListWidget):
         self.setDragEnabled(True)
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.setIconSize(QSize(60,40))
-        self.setStyleSheet("QListWidget{border:1px solid #cdcdcd; color:white; background:transparent;}"
-                        "QListWidget::Item{padding-top:5px; padding-bottom:5px; border:1px solid #cdcdcd;}"
-                        "QListWidget::Item:hover{background:skyblue; }"
-                        "QListWidget::item:selected:!active{border-width:0px; background:#cdcdcd; }"
+        self.setStyleSheet("QListWidget{border:1px solid #282828; color:white; background:#4d4d4d;}"
+                        "QListView::item{border:1px solid #454545;}"
+                        "QListView::item::hover{}"
+                        "QListView::item:selected{border:0px;background:#6d6d6d;}"
+                        "QListView::item:selected:!active{border:0px; background:#6d6d6d; }"
+                        "QListView::item:selected:active{border:0px; background:#6d6d6d; }"
                         )
         self.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self.itemSelectionChanged.connect(self.getListitems)
@@ -132,15 +189,16 @@ class ListWidget(QListWidget):
     
     def addItemSlot(self,icon,ind=0,newname='Untitled'):
         newitem = QListWidgetItem()
-        font = QFont()
-        font.setPointSize(10)
-        newitem.setFont(font)
-        newitem.setText(newname)
-        newitem.setTextAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
-        newitem.setIcon(QIcon(icon))
+        # font = QFont()
+        # font.setPointSize(10)
+        # newitem.setFont(font)
+        # newitem.setText(newname)
+        # newitem.setTextAlignment(Qt.AlignHCenter|Qt.AlignVCenter)
+        # newitem.setIcon(QIcon(icon))
         # self.list_names.insert(ind,newname)
         #self.addItem(newitem)
         self.insertItem(ind,newitem)
+        self.setItemWidget(newitem,ItemWidget(icon,newname,newitem))
     
     def insertItemSlot(self,ind,newitem):
         # self.list_names.insert(ind,newitem.text())
@@ -243,7 +301,7 @@ class LayerMain(QWidget):
         self.lay.setSpacing(0)
         self.lay.setAlignment(Qt.AlignCenter)
         self.layer_list = ListWidget(debug=self.__debug)
-        self.layer_list.setStyleSheet('QListWidget{color:white;background-color:#535353;border:1px solid #282828;}')
+        # self.layer_list.setStyleSheet('QListWidget{color:white;background-color:#535353;border:1px solid #282828;}')
         #self.layer_list.Data_init(QIcon(ops.cvtCV2Pixmap(cv2.copyMakeBorder(cv2.resize(self.tab_canvas.canvas.layers.Image,(40,30)),3,3,3,3,borderType=cv2.BORDER_CONSTANT,dst=None,value=[200,200,200]))))
         # self.initWithLayerStack()
         self.toolsBox = QGroupBox(self)
@@ -314,7 +372,7 @@ class LayerMain(QWidget):
         self.cpy_btn.setIcon(QIcon('./static/UI/copy.svg'))
         self.grp_btn.setIcon(QIcon('./static/UI/folder.svg'))
         self.adj_btn.setIcon(QIcon('./static/UI/adjust.svg'))
-        self.mask_btn.setIcon(QIcon('./static/UI/mask.svg'))
+        self.mask_btn.setIcon(QIcon('./static/UI/money.svg'))
         #self.new_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
         #self.cpy_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
         #self.del_btn.setStyleSheet("QToolButton{background: transparent;border:none}")
@@ -417,16 +475,19 @@ class LayerMain(QWidget):
     def initWithLayerStack(self, layer):
         self.layer_list.clear()
         for item in layer.layer:
-            font = QFont()
-            font.setPointSize(10)
+            # font = QFont()
+            # font.setPointSize(10)
             tmp_item = QListWidgetItem(self.layer_list)
-            tmp_item.setIcon(QIcon(item.icon))
-            tmp_item.setFont(font)
-            if not item.name:
-                item.name = 'layer-1'
-            tmp_item.setText(item.name)
-            tmp_item.setTextAlignment(Qt.AlignCenter)
+            # tmp_item.setIcon(QIcon(item.icon))
+            # tmp_item.setFont(font)
+            # if not item.name:
+            #     item.name = 'layer-1'
+            # tmp_item.setText(item.name)
+            # tmp_item.setTextAlignment(Qt.AlignCenter)
             self.layer_list.insertItemSlot(0,tmp_item)
+            item = ItemWidget(item.icon,item.name)
+            tmp_item.setSizeHint(QSize(self.layer_list.width()-20,item.height()))
+            self.layer_list.setItemWidget(tmp_item,item)
         lsize = len(layer.layer)
         if self.__debug:
             # logger.debug('The layers name:'+str(self.layer_list.list_names))

@@ -194,6 +194,14 @@ def resizeAdjustment(img,width,height):
         img = cv2.resize(img,(width,int(h/s_w)))
     return img
 
+def getFitSize(shape,width,height):
+    h,w,_ = shape
+    s_h,s_w = h/height,w/width
+    if s_h > s_w:
+        return int(w/s_h),height
+    else:
+        return width,int(h/s_w)
+
 def resize(img,width,height):
     return cv2.resize(img,(width,height))
 
